@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>投篮挑战赛</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a2a4a; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+  #game { display: block; width: 100vw; height: 100vh; touch-action: none; }
+
+  .overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background: rgba(10, 20, 45, 0.82); backdrop-filter: blur(6px);
+    z-index: 10; color: #fff; text-align: center; padding: 20px;
+  }
+  .hidden { display: none !important; }
+  .title { font-size: clamp(24px, 5.5vw, 40px); font-weight: 800; letter-spacing: 2px;
+           text-shadow: 0 4px 12px rgba(0,0,0,.5); }
+  .subtitle { font-size: clamp(12px, 2.8vw, 16px); color: #bcd2ff; line-height: 1.8; }
+  .btn {
+    font-size: clamp(16px, 4vw, 20px); font-weight: 700; color: #3a2600;
+    background: linear-gradient(180deg, #ffe082, #ffb300); border: none; border-radius: 999px;
+    padding: 14px 46px; cursor: pointer; box-shadow: 0 6px 0 #b27a00, 0 10px 20px rgba(0,0,0,.4);
+    transition: transform .1s; z-index: 20;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #b27a00; }
+  .btn:disabled { filter: grayscale(.8); opacity: .5; cursor: not-allowed; }
+  #finalScore { font-size: clamp(48px, 14vw, 88px); font-weight: 900; color: #ffd54a;
+                text-shadow: 0 4px 0 #b27a00, 0 8px 24px rgba(0,0,0,.6); }
+  #finalComment { font-size: clamp(16px, 4.5vw, 24px); font-weight: 700; }
+  .shot-record { font-size: 14px; color: #bcd2ff; letter-spacing: 1px; }
+
+  .chars { display: flex; gap: 22px; margin: 4px 0; }
+  .char-card {
+    width: clamp(120px, 28vw, 170px); cursor: pointer; border-radius: 18px;
+    background: rgba(255,255,255,.08); border: 3px solid transparent;
+    padding: 12px; transition: transform .15s, border-color .15s;
+  }
+  .char-card:hover { transform: scale(1.05); }
+  .char-card.selected { border-color: #ffd54a; background: rgba(255,213,74,.15); transform: scale(1.05); }
+  .char-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 12px; object-position: top; background: #dbe7ff; }
+  .char-card .cname { display: block; margin-top: 8px; font-size: 16px; font-weight: 700; }
+  .char-card .cskill { display: block; margin-top: 4px; font-size: 11.5px; color: #ffd54a; line-height: 1.5; }
+  #loadStatus { font-size: 13px; color: #8fb3f0; min-height: 18px; }
+
+  #nextBtn {
+    position: fixed; left: 50%; bottom: 8%; transform: translateX(-50%);
+    display: none; animation: pop .25s ease-out;
+  }
+  @keyframes pop { from { transform: translateX(-50%) scale(.6); opacity: 0; } }
+
+  /* ---- 技能按钮 ---- */
+  #skillBar {
+    position: fixed; left: 50%; top: 12px; transform: translateX(-50%);
+    display: none; flex-direction: row; gap: 12px; z-index: 15;
+  }
+  .skill-btn {
+    font-size: clamp(15px, 3.8vw, 19px); font-weight: 700; color: #fff;
+    background: linear-gradient(180deg, #ef5350, #c62828); border: 2px solid rgba(255,255,255,.5);
+    border-radius: 16px; padding: 16px 22px; cursor: pointer;
+    box-shadow: 0 5px 14px rgba(0,0,0,.45); transition: transform .1s;
+  }
+  .skill-btn:active { transform: scale(.95); }
+  .skill-btn:disabled { filter: grayscale(1); opacity: .45; cursor: not-allowed; }
+  .skill-btn .cnt { font-size: 12.5px; opacity: .85; display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<button class="btn" id="nextBtn">下一球 ▶</button>
+
+<div id="skillBar">
+  <button class="skill-btn" id="skill1">💥 王泽肘击<span class="cnt">冲至篮下 · 剩 1 次</span></button>
+  <button class="skill-btn" id="skill2">🧈 肥油二次<span class="cnt">投丢抢板再投 · 剩 1 次</span></button>
+</div>
+
+<!-- 开始 / 选人界面 -->
+<div id="menu" class="overlay">
+  <div class="title">🏀 投篮挑战赛</div>
+  <div class="chars">
+    <div class="char-card" id="char1">
+      <img src="player1.jpg" alt="豆豆">
+      <span class="cname">豆豆</span>
+      <span class="cskill">❓❓❓</span>
+    </div>
+    <div class="char-card" id="char2">
+      <img src="wangze-card.jpg" alt="王泽">
+      <span class="cname">王泽</span>
+      <span class="cskill">💥 王泽肘击：冲到篮下<br>🧈 肥油二次：投丢再投</span>
+    </div>
+  </div>
+  <div class="subtitle">
+    <b>按住屏幕蓄力，松开投篮</b> —— 力度决定距离！<br>
+    空心入网 <b style="color:#ffd54a">+3</b> ｜ 打板/碰筐进 <b style="color:#9ccc65">+2</b> ｜
+    没进 0 ｜ 三不沾 <b style="color:#ef5350">-1</b> ｜ 共 5 球
+  </div>
+  <div id="loadStatus">正在准备球员形象…</div>
+  <button class="btn" id="startBtn" disabled>请先选择球员</button>
+</div>
+
+<!-- 结算界面 -->
+<div id="gameover" class="overlay hidden">
+  <div class="title">比赛结束</div>
+  <div id="finalScore">0</div>
+  <div id="finalComment"></div>
+  <div class="shot-record" id="shotRecord"></div>
+  <button class="btn" id="retryBtn">再来一局</button>
+</div>
+
+<!-- AI 人像抠图库（本地加载） -->
+<script src="lib/tf.min.js"></script>
+<script src="lib/body-pix.min.umd.js"></script>
+
+<script>
+(() => {
+"use strict";
+
+/* ================= 基础 ================= */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+    return this;
+  };
+}
+let W = 0, H = 0, DPR = 1, S = 1;
+let GROUND = 0;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  S = Math.min(W, H) / 600;
+  GROUND = H * 0.86;
+  layoutHoop();
+}
+window.addEventListener("resize", resize);
+
+/* ================= 图片 ================= */
+const imgHoop = new Image(); imgHoop.src = "hoop.jpg";
+const imgChars = [new Image(), new Image()];
+imgChars[0].src = "player1.jpg";
+imgChars[1].src = "wangze.png";   // 已离线抠好的透明 PNG
+
+/* ================= 球员抠图 ================= */
+// cutouts[i] = {canvas, bbox:{x,y,w,h}}
+const cutouts = [null, null];
+
+function scanBBox(c) {
+  const x = c.getContext("2d");
+  const id = x.getImageData(0, 0, c.width, c.height).data;
+  let minX = c.width, minY = c.height, maxX = 0, maxY = 0;
+  for (let yy = 0; yy < c.height; yy += 2) {
+    for (let xx = 0; xx < c.width; xx += 2) {
+      if (id[(yy * c.width + xx) * 4 + 3] > 20) {
+        if (xx < minX) minX = xx; if (xx > maxX) maxX = xx;
+        if (yy < minY) minY = yy; if (yy > maxY) maxY = yy;
+      }
+    }
+  }
+  if (maxX <= minX || maxY <= minY) return null;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+// 两个角色统一用 AI 人像分割抠图
+async function prepareChar(idx) {
+  const img = imgChars[idx];
+  await new Promise(res => {
+    if (img.complete && img.naturalWidth) return res();
+    img.onload = res; img.onerror = res;
+  });
+  if (!img.naturalWidth) return;
+  const bp = window.bodyPix || window["body-pix"];
+  if (!bp) throw new Error("抠图库未加载");
+  const net = await bp.load({
+    architecture: "MobileNetV1", outputStride: 16, multiplier: 0.75, quantBytes: 2,
+    modelUrl: "lib/model/model-stride16.json"
+  });
+  const seg = await net.segmentPerson(img, { internalResolution: "medium", segmentationThreshold: 0.65 });
+  const mask = bp.toMask(seg, { r: 255, g: 255, b: 255, a: 255 }, { r: 255, g: 255, b: 255, a: 0 });
+  const person = document.createElement("canvas");
+  person.width = img.naturalWidth; person.height = img.naturalHeight;
+  const pctx = person.getContext("2d");
+  pctx.drawImage(img, 0, 0);
+  const mc = document.createElement("canvas");
+  mc.width = mask.width; mc.height = mask.height;
+  const mctx = mc.getContext("2d");
+  mctx.putImageData(mask, 0, 0);
+  mctx.filter = "blur(2px)";
+  mctx.drawImage(mc, 0, 0);
+  pctx.globalCompositeOperation = "destination-in";
+  pctx.drawImage(mc, 0, 0, person.width, person.height);
+  const bbox = scanBBox(person);
+  if (!bbox) throw new Error("char" + idx + " mask empty");
+  cutouts[idx] = { canvas: person, bbox };
+}
+
+// 王泽：直接加载离线抠好的透明 PNG（无需再处理）
+async function prepareCharPng(idx) {
+  const img = imgChars[idx];
+  await new Promise(res => {
+    if (img.complete && img.naturalWidth) return res();
+    img.onload = res; img.onerror = res;
+  });
+  if (!img.naturalWidth) throw new Error("wangze.png 未加载");
+  cutouts[idx] = {
+    canvas: img,
+    bbox: { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight }
+  };
+}
+
+async function prepareAll() {
+  const status = document.getElementById("loadStatus");
+  const results = await Promise.allSettled([prepareChar(0), prepareCharPng(1)]);
+  const failed = results.filter(r => r.status === "rejected");
+  if (failed.length) {
+    console.warn("抠图失败：", failed.map(f => f.reason));
+    status.textContent = "⚠️ 部分球员抠图失败（已用照片模式）";
+  } else {
+    status.textContent = "✅ 球员形象就绪！";
+  }
+}
+prepareAll();
+
+/* ================= 篮筐布局 ================= */
+const RIM_CX_F = 0.42, RIM_CY_F = 0.535, RIM_W_F = 0.235;
+let hoop = {};
+
+function layoutHoop() {
+  const rimR = 24 * S;
+  const cx = W * 0.82, cy = H * 0.36;
+  const imgW = (rimR * 2) / RIM_W_F;
+  const imgH = imgW * (imgHoop.naturalHeight && imgHoop.naturalWidth
+                        ? imgHoop.naturalHeight / imgHoop.naturalWidth : 851 / 933);
+  hoop = {
+    rimR, cx, cy, imgW, imgH,
+    imgX: cx - RIM_CX_F * imgW,
+    imgY: cy - RIM_CY_F * imgH,
+    boardX: cx + rimR + 4 * S,
+    boardTop: cy - 150 * S,
+    boardBottom: cy + 4 * S,
+  };
+}
+
+/* ================= 游戏状态 ================= */
+const TOTAL_SHOTS = 5;
+const ANGLE = 62 * Math.PI / 180;
+const GRAV = 2100;
+const PLAYER_H = 200;
+const CLOSE_RANGE = 210;                     // ×S，篮下范围
+
+let state = "menu";   // menu | aim | charging | flying | result | resultWait | skillAnim | gameover
+let charIdx = 0;
+let score = 0, shotNum = 0;
+let shotHistory = [];
+let power = 0, chargeT = 0;
+let resultText = "", resultColor = "#fff", resultTimer = 0;
+let announceText = "", announceColor = "#fff", announceT = 0;
+
+// 技能
+let skills = { greed: 0, elbow: 0, second: 0 };
+let greedArmed = false;
+let secondChanceArmed = false;
+let skillAnim = null;
+let dunkAnim = null;
+
+let player = { x: 0, y: 0 };
+function playerMinX() { return W * 0.10; }
+function playerMaxX() { return hoop.cx - hoop.rimR - 110 * S; }
+
+function handPos() {
+  return { x: player.x + 36 * S, y: player.y - PLAYER_H * S * 0.92 };
+}
+function chestPos() {
+  // 王泽是双臂高举的跳投姿势，球在举起的手附近
+  return charIdx === 1
+    ? { x: player.x + 18 * S, y: player.y - PLAYER_H * S * 0.90 }
+    : { x: player.x + 24 * S, y: player.y - PLAYER_H * S * 0.55 };
+}
+function isCloseRange() {
+  return (hoop.cx - handPos().x) < CLOSE_RANGE * S;
+}
+
+const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 13 * S, dunk: false,
+               touchedRim: false, touchedBoard: false, scored: false, bounces: 0, spin: 0 };
+
+/* ================= 音效 ================= */
+let AC = null;
+function beep(freq, dur, type = "sine", vol = 0.15, slide = 0) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.value = freq;
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), AC.currentTime + dur);
+    g.gain.setValueAtTime(vol, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime + dur);
+  } catch (e) {}
+}
+const sndShoot  = () => beep(500, 0.12, "triangle", 0.12, 300);
+const sndBounce = () => beep(140, 0.09, "sine", 0.18, -60);
+const sndRim    = () => beep(320, 0.10, "square", 0.08, -100);
+const sndBoard  = () => beep(200, 0.10, "sawtooth", 0.10, -80);
+const sndSwish  = () => { beep(880, 0.15, "sine", 0.15, 220); setTimeout(() => beep(1320, 0.25, "sine", 0.12), 90); };
+const sndScore  = () => { beep(660, 0.12, "triangle", 0.15); setTimeout(() => beep(990, 0.2, "triangle", 0.13), 100); };
+const sndBad    = () => beep(220, 0.4, "sawtooth", 0.12, -120);
+const sndElbow  = () => { beep(180, 0.15, "sawtooth", 0.15, 120); setTimeout(() => beep(90, 0.2, "sine", 0.2, -30), 120); };
+
+function announce(text, color) {
+  announceText = text; announceColor = color || "#fff"; announceT = 1.5;
+}
+
+/* ================= 回合控制 ================= */
+const nextBtn = document.getElementById("nextBtn");
+const skillBar = document.getElementById("skillBar");
+const skill1Btn = document.getElementById("skill1");
+const skill2Btn = document.getElementById("skill2");
+let skillBarVisible = false;
+
+function newShot() {
+  shotNum++;
+  player.x = playerMinX() + Math.random() * (playerMaxX() - playerMinX());
+  player.y = GROUND;
+  resetBall();
+  power = 0; chargeT = 0;
+  skillAnim = null;
+  state = "aim";
+  updateSkillButtons();
+}
+
+function resetBall() {
+  const h = chestPos();
+  ball.x = h.x; ball.y = h.y; ball.vx = 0; ball.vy = 0;
+  ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = false;
+  ball.bounces = 0; ball.r = 13 * S;
+}
+
+function shoot() {
+  // 🪙 无尽贪婪：无视力度，直接起飞扣篮
+  if (greedArmed) {
+    greedArmed = false;
+    dunkAnim = { fromX: player.x, t: 0 };
+    announce("无尽贪婪！起飞！🪙", "#ffd54a");
+    sndShoot();
+    state = "dunkAnim";
+    updateSkillButtons();
+    return;
+  }
+  const h = handPos();
+  const d = hoop.cx - h.x;
+  const hh = h.y - hoop.cy;
+  const g = GRAV * S;
+  const denom = 2 * Math.cos(ANGLE) ** 2 * (d * Math.tan(ANGLE) - hh);
+  const vIdeal = Math.sqrt(Math.max(1, g * d * d / Math.max(1, denom)));
+  // 力度容错：篮下非常宽松，中远投也较容易掌握
+  const v = isCloseRange() ? vIdeal * (0.80 + 0.36 * power)
+                            : vIdeal * (0.60 + 0.70 * power);
+  ball.x = h.x; ball.y = h.y;
+  ball.vx = Math.cos(ANGLE) * v;
+  ball.vy = -Math.sin(ANGLE) * v;
+  sndShoot();
+  state = "flying";
+}
+
+function distanceMeters() {
+  return ((hoop.cx - handPos().x) / (70 * S)).toFixed(1);
+}
+
+function settleShot() {
+  if (state !== "flying") return;
+  // 🧈 肥油二次：投丢后篮下抢板再投，不消耗投篮次数
+  if (!ball.scored && secondChanceArmed) {
+    secondChanceArmed = false;
+    player.x = hoop.cx - 136 * S;
+    player.y = GROUND;
+    resetBall();
+    announce("肥油二次！抢下篮板再投！🧈", "#ffd54a");
+    sndScore();
+    state = "aim";
+    updateSkillButtons();
+    return;
+  }
+  secondChanceArmed = false;
+
+  let text, color, pts;
+  if (ball.scored) {
+    if (ball.dunk)                              { text = "无尽贪婪！劈扣 +3"; pts = 3; color = "#ffd54a"; sndSwish(); }
+    else if (!ball.touchedRim && !ball.touchedBoard) { text = "空心入网！+3"; pts = 3; color = "#ffd54a"; sndSwish(); }
+    else if (ball.touchedBoard)                 { text = "打板命中 +2"; pts = 2; color = "#9ccc65"; sndScore(); }
+    else                                        { text = "碰筐命中 +2"; pts = 2; color = "#9ccc65"; sndScore(); }
+  } else if (!ball.touchedRim && !ball.touchedBoard) {
+    text = "三不沾！-1"; pts = -1; color = "#ef5350"; sndBad();
+  } else {
+    text = "差一点…… +0"; pts = 0; color = "#b0bec5";
+  }
+  score += pts;
+  shotHistory.push(pts);
+  resultText = text; resultColor = color; resultTimer = 1.2;
+  state = "result";
+}
+
+function showNextButton() {
+  nextBtn.textContent = shotNum >= TOTAL_SHOTS ? "查看总分 🏁" : "下一球 ▶";
+  nextBtn.style.display = "block";
+  state = "resultWait";
+}
+nextBtn.addEventListener("click", () => {
+  nextBtn.style.display = "none";
+  if (state !== "resultWait") return;
+  if (shotNum >= TOTAL_SHOTS) endGame();
+  else newShot();
+});
+
+function endGame() {
+  state = "gameover";
+  document.getElementById("finalScore").textContent = score + " 分";
+  let comment;
+  if (score >= 13)      comment = "🏆 神射手！库里附体！";
+  else if (score >= 9)  comment = "🔥 手感火热，太准了！";
+  else if (score >= 5)  comment = "👍 表现不错，继续加油！";
+  else if (score >= 1)  comment = "💪 还得多练练手感～";
+  else                  comment = "😅 篮筐今天跟你过不去……";
+  document.getElementById("finalComment").textContent = comment;
+  document.getElementById("shotRecord").textContent =
+    "每球得分：" + shotHistory.map(p => (p > 0 ? "+" + p : p)).join(" ｜ ");
+  document.getElementById("gameover").classList.remove("hidden");
+}
+
+/* ================= 技能 ================= */
+function updateSkillButtons() {
+  if (charIdx === 0) {
+    // 豆豆：无尽贪婪
+    skill1Btn.style.display = "";
+    skill2Btn.style.display = "none";
+    skill1Btn.disabled = skills.greed <= 0 || state !== "aim" || greedArmed;
+    skill1Btn.innerHTML = greedArmed
+      ? `🪙 无尽贪婪<span class="cnt">已启动：出手即飞扣！</span>`
+      : `🪙 无尽贪婪<span class="cnt">无视力度直接扣篮 · 剩 ${skills.greed} 次</span>`;
+  } else {
+    // 王泽：肘击 + 肥油二次
+    skill1Btn.style.display = "";
+    skill2Btn.style.display = "";
+    skill1Btn.disabled = skills.elbow <= 0 || state !== "aim" || isCloseRange();
+    skill2Btn.disabled = skills.second <= 0 || state !== "aim" || secondChanceArmed;
+    skill1Btn.innerHTML = `💥 王泽肘击<span class="cnt">冲至篮下 · 剩 ${skills.elbow} 次</span>`;
+    skill2Btn.innerHTML = secondChanceArmed
+      ? `🧈 肥油二次<span class="cnt">已启动：投丢可再投</span>`
+      : `🧈 肥油二次<span class="cnt">投丢抢板再投 · 剩 ${skills.second} 次</span>`;
+  }
+}
+
+// 技能1：豆豆=无尽贪婪 / 王泽=肘击
+skill1Btn.addEventListener("click", () => {
+  if (state !== "aim") return;
+  if (charIdx === 0) {
+    // 🪙 无尽贪婪：本球出手直接飞扣
+    if (skills.greed <= 0 || greedArmed) return;
+    skills.greed--;
+    greedArmed = true;
+    announce("无尽贪婪已启动！🪙", "#ffd54a");
+    sndScore();
+  } else {
+    // 💥 王泽肘击：冲到篮下最远位置
+    if (skills.elbow <= 0 || isCloseRange()) return;
+    skills.elbow--;
+    const targetX = hoop.cx - (CLOSE_RANGE - 12) * S - 36 * S;
+    skillAnim = { fromX: player.x, toX: targetX, t: 0, dur: 0.35 };
+    state = "skillAnim";
+    announce("王泽肘击！💥", "#ff8a65");
+    sndElbow();
+  }
+  updateSkillButtons();
+});
+
+// 🧈 肥油二次：本球投丢可抢板再投
+skill2Btn.addEventListener("click", () => {
+  if (state !== "aim" || skills.second <= 0 || secondChanceArmed) return;
+  skills.second--;
+  secondChanceArmed = true;
+  announce("肥油二次已启动！🧈", "#ffd54a");
+  sndScore();
+  updateSkillButtons();
+});
+
+/* ================= 输入 ================= */
+function pressStart() {
+  if (state === "aim") { state = "charging"; chargeT = 0; power = 0; }
+}
+function pressEnd() {
+  if (state === "charging") shoot();
+}
+canvas.addEventListener("pointerdown", e => { e.preventDefault(); pressStart(); });
+window.addEventListener("pointerup",   e => { pressEnd(); });
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" && !e.repeat) { e.preventDefault(); pressStart(); }
+});
+window.addEventListener("keyup", e => {
+  if (e.code === "Space") { e.preventDefault(); pressEnd(); }
+});
+
+/* ================= 物理 ================= */
+function updateBall(dt) {
+  const g = GRAV * S;
+  ball.vy += g * dt;
+  ball.x += ball.vx * dt;
+  ball.y += ball.vy * dt;
+  ball.spin += ball.vx * dt * 0.02;
+
+  const pts = [
+    { x: hoop.cx - hoop.rimR, y: hoop.cy },
+    { x: hoop.cx + hoop.rimR, y: hoop.cy },
+  ];
+  for (const p of pts) {
+    const dx = ball.x - p.x, dy = ball.y - p.y;
+    const dist = Math.hypot(dx, dy);
+    const minD = ball.r + 4 * S;
+    if (dist < minD && dist > 0.01) {
+      const nx = dx / dist, ny = dy / dist;
+      const dot = ball.vx * nx + ball.vy * ny;
+      if (dot < 0) {
+        ball.vx -= 1.7 * dot * nx;
+        ball.vy -= 1.7 * dot * ny;
+        ball.vx *= 0.62; ball.vy *= 0.62;
+        ball.x = p.x + nx * minD; ball.y = p.y + ny * minD;
+        if (!ball.touchedRim) sndRim();
+        ball.touchedRim = true;
+      }
+    }
+  }
+
+  if (!ball.scored &&
+      ball.vx > 0 &&
+      ball.x + ball.r >= hoop.boardX &&
+      ball.x - ball.r <= hoop.boardX + 10 * S &&
+      ball.y > hoop.boardTop && ball.y < hoop.boardBottom) {
+    ball.x = hoop.boardX - ball.r;
+    ball.vx = -ball.vx * 0.55;
+    ball.vy *= 0.85;
+    if (!ball.touchedBoard) sndBoard();
+    ball.touchedBoard = true;
+  }
+
+  if (!ball.scored && ball.vy > 0 &&
+      ball.y - ball.r * 0.2 >= hoop.cy && ball.y - ball.r * 0.2 <= hoop.cy + 14 * S &&
+      Math.abs(ball.x - hoop.cx) < hoop.rimR * 0.8) {
+    ball.scored = true;
+    ball.vx *= 0.25;
+    ball.vy = Math.min(ball.vy, 260 * S);
+  }
+
+  if (ball.scored && ball.y < hoop.cy + 90 * S) {
+    ball.x += (hoop.cx - ball.x) * 0.12;
+  }
+
+  if (ball.y + ball.r >= GROUND) {
+    ball.y = GROUND - ball.r;
+    if (Math.abs(ball.vy) > 80 * S) {
+      ball.vy = -ball.vy * 0.45;
+      ball.vx *= 0.7;
+      sndBounce();
+    } else {
+      ball.vy = 0; ball.vx *= 0.86;
+    }
+    if (++ball.bounces > 3 || Math.abs(ball.vx) < 20 * S) settleShot();
+  }
+
+  if (ball.x < -60 || ball.x > W + 60 || ball.y < -H) settleShot();
+}
+
+/* ================= 绘制 ================= */
+function drawCourt() {
+  const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
+  sky.addColorStop(0, "#2c4a8a"); sky.addColorStop(0.7, "#4a74b8"); sky.addColorStop(1, "#6f9bd6");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND + 2);
+  const fl = ctx.createLinearGradient(0, GROUND, 0, H);
+  fl.addColorStop(0, "#c98f4e"); fl.addColorStop(1, "#a06a32");
+  ctx.fillStyle = fl; ctx.fillRect(0, GROUND, W, H - GROUND);
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3 * S;
+  ctx.beginPath(); ctx.moveTo(0, GROUND + 2); ctx.lineTo(W, GROUND + 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(hoop.cx, GROUND, (hoop.cx - playerMinX()) * 0.9, Math.PI, 1.5 * Math.PI);
+  ctx.stroke();
+}
+
+function drawHoop() {
+  ctx.fillStyle = "#2e7d32";
+  const poleX = hoop.cx + hoop.rimR + 4 * S + 60 * S;
+  ctx.fillRect(poleX, hoop.boardTop, 16 * S, GROUND - hoop.boardTop);
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.4)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4;
+  if (imgHoop.complete && imgHoop.naturalWidth) {
+    ctx.drawImage(imgHoop, hoop.imgX, hoop.imgY, hoop.imgW, hoop.imgH);
+  } else {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(hoop.boardX, hoop.boardTop, 8 * S, hoop.boardBottom - hoop.boardTop);
+    ctx.strokeStyle = "#e53935"; ctx.lineWidth = 4 * S;
+    ctx.beginPath(); ctx.ellipse(hoop.cx, hoop.cy, hoop.rimR, 6 * S, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+
+  if (ball.scored && (state === "flying" || state === "result" || state === "resultWait" || state === "dunkAnim")) {
+    ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2 * S;
+    const sway = Math.sin(ball.spin * 3) * 6 * S;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(hoop.cx + i * hoop.rimR * 0.4, hoop.cy + 4 * S);
+      ctx.quadraticCurveTo(hoop.cx + i * hoop.rimR * 0.25 + sway, hoop.cy + 30 * S,
+                           hoop.cx + sway, hoop.cy + 55 * S);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPlayer() {
+  const x = player.x, y = player.y;
+  const ph = PLAYER_H * S;
+  const raise = state === "charging" ? Math.min(1, chargeT * 4)
+              : (state === "flying" || state === "result" || state === "resultWait") ? 1 : 0;
+  const cut = cutouts[charIdx];
+  const img = imgChars[charIdx];
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.beginPath(); ctx.ellipse(x + 10 * S, y + 4 * S, 38 * S, 8 * S, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.translate(x, y);
+  ctx.rotate(-(charIdx === 1 ? 0.04 : 0.08) * raise);
+  ctx.translate(-x, -y);
+
+  if (cut) {
+    const b = cut.bbox;
+    const scale = ph / b.h;
+    const dw = b.w * scale, dh = b.h * scale;
+    ctx.drawImage(cut.canvas, b.x, b.y, b.w, b.h, x - dw / 2, y - dh, dw, dh);
+  } else if (img.complete && img.naturalWidth) {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const dw = ph * 0.62, dh = ph;
+    const sx = iw * 0.30, sw = iw * 0.40, sy = ih * 0.40, sh = ih * 0.60;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, y - dh / 2, dw / 2, dh / 2, 0, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(img, sx, sy, sw, sh, x - dw / 2, y - dh, dw, dh);
+    ctx.globalCompositeOperation = "destination-in";
+    const fg = ctx.createRadialGradient(x, y - dh / 2, dh * 0.2, x, y - dh / 2, dh * 0.55);
+    fg.addColorStop(0, "rgba(0,0,0,1)"); fg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = fg;
+    ctx.fillRect(x - dw, y - dh * 1.2, dw * 2, dh * 1.4);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#37474f";
+    ctx.beginPath(); ctx.roundRect(x - 20 * S, y - ph, 40 * S, ph, 16 * S); ctx.fill();
+  }
+  ctx.restore();
+
+  if (state === "aim" || state === "charging" || state === "skillAnim") {
+    const c = chestPos(), h = handPos();
+    const t = state === "charging" ? Math.min(1, chargeT * 4) : 0;
+    drawBall(c.x + (h.x - c.x) * t, c.y + (h.y - c.y) * t, 0);
+  }
+}
+
+function drawBall(bx, by, spin) {
+  const r = ball.r;
+  ctx.save();
+  ctx.translate(bx, by); ctx.rotate(spin);
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.2, 0, 0, r);
+  g.addColorStop(0, "#ff8a50"); g.addColorStop(1, "#d84e0f");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(60,20,0,.7)"; ctx.lineWidth = Math.max(1, 1.6 * S);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.stroke();
+  ctx.beginPath(); ctx.arc(-r * 1.4, 0, r * 1.1, -0.6, 0.6); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r * 1.4, 0, r * 1.1, Math.PI - 0.6, Math.PI + 0.6); ctx.stroke();
+  ctx.restore();
+}
+
+function drawHUD() {
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,.45)";
+  ctx.beginPath(); ctx.roundRect(12, 12, 190 * S + 60, 78, 14); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.font = `700 ${20 * S + 6}px sans-serif`; ctx.textBaseline = "top";
+  ctx.fillText(`得分 ${score}`, 26, 22);
+  ctx.fillStyle = "#bcd2ff"; ctx.font = `600 ${15 * S + 4}px sans-serif`;
+  ctx.fillText(`第 ${shotNum}/${TOTAL_SHOTS} 球 ｜ 距离 ${distanceMeters()} 米`, 26, 52);
+
+  for (let i = 0; i < TOTAL_SHOTS; i++) {
+    const cx0 = 30 + i * 22, cy0 = 82;
+    ctx.beginPath(); ctx.arc(cx0, cy0, 7, 0, Math.PI * 2);
+    const p = shotHistory[i];
+    ctx.fillStyle = p === undefined ? "rgba(255,255,255,.2)"
+                  : p === 3 ? "#ffd54a" : p === 2 ? "#9ccc65" : p === 0 ? "#78909c" : "#ef5350";
+    ctx.fill();
+  }
+  ctx.restore();
+
+  if (state === "charging") {
+    const bw = Math.min(W * 0.6, 380), bh = 26, bx = (W - bw) / 2, by = H - 70;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.5)";
+    ctx.beginPath(); ctx.roundRect(bx - 8, by - 8, bw + 16, bh + 16, 18); ctx.fill();
+    const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    grad.addColorStop(0, "#4caf50"); grad.addColorStop(0.55, "#ffd54a"); grad.addColorStop(1, "#e53935");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw * power, bh, 12); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 12); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.font = `700 ${15 * S + 3}px sans-serif`; ctx.textAlign = "center";
+    ctx.fillText("松开出手！", W / 2, by - 16);
+    ctx.restore();
+  } else if (state === "aim") {
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.font = `600 ${15 * S + 4}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText("按住屏幕蓄力，松开投篮", W / 2, H - 40);
+    ctx.restore();
+  }
+
+  if (state === "result" || state === "resultWait") {
+    ctx.save();
+    const t = Math.min(1, (1.2 - resultTimer) * 4);
+    ctx.translate(W / 2, H * 0.3);
+    ctx.scale(0.6 + 0.4 * t, 0.6 + 0.4 * t);
+    ctx.font = `900 ${34 * S + 14}px sans-serif`; ctx.textAlign = "center";
+    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.6)";
+    ctx.strokeText(resultText, 0, 0);
+    ctx.fillStyle = resultColor;
+    ctx.fillText(resultText, 0, 0);
+    ctx.restore();
+  }
+
+  // 技能播报
+  if (announceT > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, announceT);
+    ctx.font = `800 ${22 * S + 8}px sans-serif`; ctx.textAlign = "center";
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.6)";
+    ctx.strokeText(announceText, W / 2, H * 0.2);
+    ctx.fillStyle = announceColor;
+    ctx.fillText(announceText, W / 2, H * 0.2);
+    ctx.restore();
+  }
+}
+
+/* ================= 主循环 ================= */
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - lastT) / 1000);
+  lastT = now;
+
+  if (announceT > 0) announceT -= dt;
+
+  if (state === "charging") {
+    chargeT += dt;
+    // 蓄力条速度：篮下很慢，远处也较从容
+    power = Math.min(1, chargeT / (isCloseRange() ? 2.8 : 1.9));
+    if (power >= 1) shoot();
+  } else if (state === "skillAnim") {
+    skillAnim.t += dt;
+    const k = Math.min(1, skillAnim.t / skillAnim.dur);
+    const e = 1 - (1 - k) * (1 - k);
+    player.x = skillAnim.fromX + (skillAnim.toX - skillAnim.fromX) * e;
+    const c = chestPos();
+    ball.x = c.x; ball.y = c.y;
+    if (k >= 1) { state = "aim"; updateSkillButtons(); }
+  } else if (state === "dunkAnim") {
+    // 🪙 扣篮动画：飞过去 → 砸进篮筐 → 落地
+    dunkAnim.t += dt;
+    const t = dunkAnim.t;
+    const dunkX = hoop.cx - 34 * S;
+    if (t < 0.55) {
+      // 飞行阶段（抛物线跳起）
+      const k = t / 0.55;
+      player.x = dunkAnim.fromX + (dunkX - dunkAnim.fromX) * k;
+      player.y = GROUND - 170 * S * Math.sin(Math.PI * k);
+      const h = handPos();
+      ball.x = h.x; ball.y = h.y;
+    } else if (t < 0.72) {
+      // 砸筐阶段
+      const k = (t - 0.55) / 0.17;
+      player.x = dunkX;
+      player.y = GROUND;
+      ball.x = hoop.cx;
+      ball.y = (hoop.cy - 70 * S) + k * 95 * S;
+      ball.scored = true; ball.dunk = true;
+      if (k >= 1) { sndSwish(); announce("暴力劈扣！💥", "#ffd54a"); }
+    } else {
+      // 球穿网下落，进入正常物理
+      player.x = dunkX; player.y = GROUND;
+      ball.vx = 0; ball.vy = 200 * S;
+      dunkAnim = null;
+      state = "flying";
+    }
+  } else if (state === "flying" || state === "result") {
+    updateBall(dt);
+    if (state === "result") {
+      resultTimer -= dt;
+      if (resultTimer <= 0) showNextButton();
+    }
+  }
+
+  // 技能按钮在瞄准时显示（两个角色都有技能）
+  const showSkills = (state === "aim");
+  if (showSkills !== skillBarVisible) {
+    skillBar.style.display = showSkills ? "flex" : "none";
+    skillBarVisible = showSkills;
+    if (showSkills) updateSkillButtons();
+  }
+
+  drawCourt();
+  drawHoop();
+  drawPlayer();
+  if (state === "flying" || state === "result" || state === "resultWait" || state === "dunkAnim") {
+    drawBall(ball.x, ball.y, ball.spin);
+  }
+  drawHUD();
+
+  requestAnimationFrame(loop);
+}
+
+/* ================= 菜单交互 ================= */
+let selectedChar = -1;
+const startBtn = document.getElementById("startBtn");
+function pickChar(i) {
+  selectedChar = i;
+  document.getElementById("char1").classList.toggle("selected", i === 0);
+  document.getElementById("char2").classList.toggle("selected", i === 1);
+  startBtn.disabled = false;
+  startBtn.textContent = "开始比赛 🏀";
+}
+document.getElementById("char1").addEventListener("click", () => pickChar(0));
+document.getElementById("char2").addEventListener("click", () => pickChar(1));
+
+startBtn.addEventListener("click", () => {
+  if (selectedChar < 0) return;
+  charIdx = selectedChar;
+  document.getElementById("menu").classList.add("hidden");
+  score = 0; shotNum = 0; shotHistory = [];
+  skills = charIdx === 1 ? { greed: 0, elbow: 1, second: 1 } : { greed: 2, elbow: 0, second: 0 };
+  greedArmed = false;
+  secondChanceArmed = false;
+  newShot();
+});
+document.getElementById("retryBtn").addEventListener("click", () => {
+  document.getElementById("gameover").classList.add("hidden");
+  document.getElementById("menu").classList.remove("hidden");
+  state = "menu";
+});
+
+/* ================= 启动 ================= */
+resize();
+imgHoop.onload = layoutHoop;
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
