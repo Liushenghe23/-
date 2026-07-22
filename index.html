@@ -515,6 +515,7 @@ window.addEventListener("keyup", e => {
 /* ================= 物理 ================= */
 function updateBall(dt) {
   const g = GRAV * S;
+  const prevY = ball.y;                       // 记录本帧之前的位置
   ball.vy += g * dt;
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
@@ -554,8 +555,10 @@ function updateBall(dt) {
     ball.touchedBoard = true;
   }
 
+  // 进球判定：必须上一帧在篮筐上方，本帧向下穿越篮筐平面
   if (!ball.scored && ball.vy > 0 &&
-      ball.y - ball.r * 0.2 >= hoop.cy && ball.y - ball.r * 0.2 <= hoop.cy + 14 * S &&
+      prevY < hoop.cy - ball.r * 0.5 &&
+      ball.y - ball.r * 0.2 >= hoop.cy &&
       Math.abs(ball.x - hoop.cx) < hoop.rimR * 0.8) {
     ball.scored = true;
     ball.vx *= 0.25;
