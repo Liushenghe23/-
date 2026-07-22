@@ -604,19 +604,53 @@ function drawCourt() {
   ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3 * S;
   ctx.beginPath(); ctx.moveTo(0, GROUND + 2); ctx.lineTo(W, GROUND + 2); ctx.stroke();
 
-  // 罚球线（4.6 米，白色）和三分线（6.6 米，黄色）
-  const ftX = hoop.cx - 4.6 * ppm;
-  const tpX = hoop.cx - 6.6 * ppm;
+  /* ---- 场地线：三秒区 / 罚球线 / 三分线 ---- */
+  const ftX = hoop.cx - 4.6 * ppm;                       // 罚球线位置
+  const tpR = 6.6 * ppm;                                 // 三分线半径
+  const baseX = hoop.cx + 0.4 * ppm;                     // 底线（篮板投影处）
+  const floorH = H - GROUND;
+  const arcRY = Math.min(tpR * 0.24, floorH * 0.78);     // 地面透视压扁
+
   ctx.save();
-  ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 4 * S;
+  ctx.beginPath(); ctx.rect(0, GROUND, W, floorH); ctx.clip();   // 只画在地板内
+
+  // 三秒区（禁区色块）
+  ctx.fillStyle = "rgba(41, 98, 200, .38)";
+  ctx.fillRect(ftX, GROUND, baseX - ftX, floorH);
+  ctx.strokeStyle = "rgba(255,255,255,.9)";
+  ctx.lineWidth = Math.max(2.5, 3.5 * S);
+  ctx.strokeRect(ftX, GROUND + 1, baseX - ftX, floorH - 1);
+
+  // 罚球线 + 罚球弧
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = Math.max(3, 4.5 * S);
   ctx.beginPath(); ctx.moveTo(ftX, GROUND); ctx.lineTo(ftX, H); ctx.stroke();
-  ctx.strokeStyle = "rgba(255,213,74,.85)"; ctx.lineWidth = 5 * S;
-  ctx.beginPath(); ctx.moveTo(tpX, GROUND); ctx.lineTo(tpX, H); ctx.stroke();
-  ctx.font = `700 ${12 * S + 3}px sans-serif`; ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,.9)";
-  ctx.fillText("罚球线", ftX, H - 10);
-  ctx.fillStyle = "rgba(255,213,74,.95)";
-  ctx.fillText("三分线", tpX, H - 10);
+  ctx.beginPath();
+  ctx.ellipse(ftX, GROUND, 1.8 * ppm, Math.min(1.8 * ppm * 0.24, floorH * 0.5), 0, 0, Math.PI);
+  ctx.stroke();
+
+  // 三分线（弧顶大圆弧）
+  ctx.strokeStyle = "#ffd54a";
+  ctx.lineWidth = Math.max(3.5, 5 * S);
+  ctx.beginPath();
+  ctx.ellipse(hoop.cx, GROUND, tpR, arcRY, 0, Math.PI * 0.5, Math.PI);
+  ctx.stroke();
+  ctx.restore();
+
+  // 线名标签（带底色胶囊，任何背景下都清晰）
+  ctx.save();
+  ctx.font = `700 ${Math.max(12, 12 * S + 3)}px sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const courtLabel = (txt, x, color) => {
+    const lw = ctx.measureText(txt).width + 18;
+    const ly = H - 16;
+    ctx.fillStyle = "rgba(0,0,0,.5)";
+    ctx.beginPath(); ctx.roundRect(x - lw / 2, ly - 11, lw, 22, 11); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fillText(txt, x, ly + 1);
+  };
+  courtLabel("罚球线", ftX, "#ffffff");
+  courtLabel("三分线", hoop.cx - tpR, "#ffd54a");
   ctx.restore();
 }
 
