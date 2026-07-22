@@ -265,10 +265,9 @@ function vIdealOf(d) {
   const denom = 2 * Math.cos(ANGLE) ** 2 * (d * Math.tan(ANGLE) - hh);
   return Math.sqrt(Math.max(1, g * d * d / Math.max(1, denom)));
 }
-// 当前距离下"完美空心"对应的蓄力条位置（0~1）
+// 蓄力条上的"完美点"：固定为罚球线(4.6米)投篮的完美力度
 function idealPower() {
-  const d = hoop.cx - handPos().x;
-  return Math.min(0.95, Math.max(0.05, (vIdealOf(d) - V0) / (V1 - V0)));
+  return Math.min(0.95, Math.max(0.05, (vIdealOf(4.6 * ppm) - V0) / (V1 - V0)));
 }
 
 /* ================= 游戏状态 ================= */
