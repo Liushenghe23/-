@@ -239,8 +239,9 @@ const RIM_CX_F = 0.42, RIM_CY_F = 0.535, RIM_W_F = 0.235;
 let hoop = {};
 
 function layoutHoop() {
-  const rimR = 24 * S;
-  const cx = W * 0.82, cy = H * 0.36;
+  ppm = (W * 0.82 - W * 0.08) / 7.9;          // 场地可见宽度 ≈ 7.9 米
+  const rimR = 0.225 * ppm;                   // 标准篮筐半径 0.225 米
+  const cx = W * 0.82, cy = GROUND - 3.05 * ppm;  // 篮筐高 3.05 米
   const imgW = (rimR * 2) / RIM_W_F;
   const imgH = imgW * (imgHoop.naturalHeight && imgHoop.naturalWidth
                         ? imgHoop.naturalHeight / imgHoop.naturalWidth : 851 / 933);
@@ -249,17 +250,35 @@ function layoutHoop() {
     imgX: cx - RIM_CX_F * imgW,
     imgY: cy - RIM_CY_F * imgH,
     boardX: cx + rimR + 4 * S,
-    boardTop: cy - 150 * S,
+    boardTop: cy - 1.35 * ppm,
     boardBottom: cy + 4 * S,
   };
+  // 蓄力速度范围：覆盖最近(2.5m)到最远(7.3m)的理想速度
+  V0 = 0.5 * vIdealOf(2.5 * ppm);
+  V1 = 1.35 * vIdealOf(7.3 * ppm);
+}
+
+// 某距离下正好空心入网的理想初速度
+function vIdealOf(d) {
+  const g = gravPx();
+  const hh = (GROUND - 1.9 * ppm) - (GROUND - 3.05 * ppm);   // 出手点与篮筐高差
+  const denom = 2 * Math.cos(ANGLE) ** 2 * (d * Math.tan(ANGLE) - hh);
+  return Math.sqrt(Math.max(1, g * d * d / Math.max(1, denom)));
+}
+// 当前距离下"完美空心"对应的蓄力条位置（0~1）
+function idealPower() {
+  const d = hoop.cx - handPos().x;
+  return Math.min(0.95, Math.max(0.05, (vIdealOf(d) - V0) / (V1 - V0)));
 }
 
 /* ================= 游戏状态 ================= */
 const TOTAL_SHOTS = 5;
 const ANGLE = 62 * Math.PI / 180;
-const GRAV = 2100;
-const PLAYER_H = 200;
-const CLOSE_RANGE = 210;                     // ×S，篮下范围
+let ppm = 100;                                // 每米像素（按场地宽度计算）
+let V0 = 300, V1 = 1000;                      // 蓄力对应的速度范围
+const gravPx = () => 12 * ppm;                // 重力（略强于真实，手感更利落）
+const playerHpx = () => 1.75 * ppm;           // 球员身高约 1.75 米
+const CLOSE_M = 3.2;                          // 篮下范围（米）
 
 let state = "menu";   // menu | aim | charging | flying | result | resultWait | skillAnim | gameover
 let charIdx = 0;
@@ -277,20 +296,20 @@ let skillAnim = null;
 let dunkAnim = null;
 
 let player = { x: 0, y: 0 };
-function playerMinX() { return W * 0.10; }
-function playerMaxX() { return hoop.cx - hoop.rimR - 110 * S; }
 
+// 出手点（头顶前上方，约 1.9 米高）
 function handPos() {
-  return { x: player.x + 36 * S, y: player.y - PLAYER_H * S * 0.92 };
+  return { x: player.x + 0.32 * ppm, y: player.y - 1.9 * ppm };
 }
+// 持球点
 function chestPos() {
   // 王泽是双臂高举的跳投姿势，球在举起的手附近
   return charIdx === 1
-    ? { x: player.x + 18 * S, y: player.y - PLAYER_H * S * 0.90 }
-    : { x: player.x + 24 * S, y: player.y - PLAYER_H * S * 0.55 };
+    ? { x: player.x + 0.16 * ppm, y: player.y - 1.58 * ppm }
+    : { x: player.x + 0.22 * ppm, y: player.y - 0.95 * ppm };
 }
 function isCloseRange() {
-  return (hoop.cx - handPos().x) < CLOSE_RANGE * S;
+  return (hoop.cx - handPos().x) < CLOSE_M * ppm;
 }
 
 const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 13 * S, dunk: false,
@@ -332,7 +351,8 @@ let skillBarVisible = false;
 
 function newShot() {
   shotNum++;
-  player.x = playerMinX() + Math.random() * (playerMaxX() - playerMinX());
+  const distM = 2.5 + Math.random() * 4.8;    // 投篮距离 2.5~7.3 米
+  player.x = Math.max(16, hoop.cx - distM * ppm - 0.32 * ppm);
   player.y = GROUND;
   resetBall();
   power = 0; chargeT = 0;
@@ -345,7 +365,7 @@ function resetBall() {
   const h = chestPos();
   ball.x = h.x; ball.y = h.y; ball.vx = 0; ball.vy = 0;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = false;
-  ball.bounces = 0; ball.r = 13 * S;
+  ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
 }
 
 function shoot() {
@@ -360,14 +380,7 @@ function shoot() {
     return;
   }
   const h = handPos();
-  const d = hoop.cx - h.x;
-  const hh = h.y - hoop.cy;
-  const g = GRAV * S;
-  const denom = 2 * Math.cos(ANGLE) ** 2 * (d * Math.tan(ANGLE) - hh);
-  const vIdeal = Math.sqrt(Math.max(1, g * d * d / Math.max(1, denom)));
-  // 力度容错：篮下非常宽松，中远投也较容易掌握
-  const v = isCloseRange() ? vIdeal * (0.80 + 0.36 * power)
-                            : vIdeal * (0.60 + 0.70 * power);
+  const v = V0 + power * (V1 - V0);           // 力度 → 出手速度
   ball.x = h.x; ball.y = h.y;
   ball.vx = Math.cos(ANGLE) * v;
   ball.vy = -Math.sin(ANGLE) * v;
@@ -375,16 +388,12 @@ function shoot() {
   state = "flying";
 }
 
-function distanceMeters() {
-  return ((hoop.cx - handPos().x) / (70 * S)).toFixed(1);
-}
-
 function settleShot() {
   if (state !== "flying") return;
   // 🧈 肥油二次：投丢后篮下抢板再投，不消耗投篮次数
   if (!ball.scored && secondChanceArmed) {
     secondChanceArmed = false;
-    player.x = hoop.cx - 136 * S;
+    player.x = hoop.cx - 1.5 * ppm;             // 篮下抢板位置
     player.y = GROUND;
     resetBall();
     announce("肥油二次！抢下篮板再投！🧈", "#ffd54a");
@@ -476,7 +485,7 @@ skill1Btn.addEventListener("click", () => {
     // 💥 王泽肘击：冲到篮下最远位置
     if (skills.elbow <= 0 || isCloseRange()) return;
     skills.elbow--;
-    const targetX = hoop.cx - (CLOSE_RANGE - 12) * S - 36 * S;
+  const targetX = hoop.cx - 3.0 * ppm - 0.32 * ppm;   // 冲到篮下最远位置
     skillAnim = { fromX: player.x, toX: targetX, t: 0, dur: 0.35 };
     state = "skillAnim";
     announce("王泽肘击！💥", "#ff8a65");
@@ -514,7 +523,7 @@ window.addEventListener("keyup", e => {
 
 /* ================= 物理 ================= */
 function updateBall(dt) {
-  const g = GRAV * S;
+  const g = gravPx();
   const prevY = ball.y;                       // 记录本帧之前的位置
   ball.vy += g * dt;
   ball.x += ball.vx * dt;
@@ -594,9 +603,21 @@ function drawCourt() {
   ctx.fillStyle = fl; ctx.fillRect(0, GROUND, W, H - GROUND);
   ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3 * S;
   ctx.beginPath(); ctx.moveTo(0, GROUND + 2); ctx.lineTo(W, GROUND + 2); ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(hoop.cx, GROUND, (hoop.cx - playerMinX()) * 0.9, Math.PI, 1.5 * Math.PI);
-  ctx.stroke();
+
+  // 罚球线（4.6 米，白色）和三分线（6.6 米，黄色）
+  const ftX = hoop.cx - 4.6 * ppm;
+  const tpX = hoop.cx - 6.6 * ppm;
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 4 * S;
+  ctx.beginPath(); ctx.moveTo(ftX, GROUND); ctx.lineTo(ftX, H); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,213,74,.85)"; ctx.lineWidth = 5 * S;
+  ctx.beginPath(); ctx.moveTo(tpX, GROUND); ctx.lineTo(tpX, H); ctx.stroke();
+  ctx.font = `700 ${12 * S + 3}px sans-serif`; ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  ctx.fillText("罚球线", ftX, H - 10);
+  ctx.fillStyle = "rgba(255,213,74,.95)";
+  ctx.fillText("三分线", tpX, H - 10);
+  ctx.restore();
 }
 
 function drawHoop() {
@@ -630,7 +651,7 @@ function drawHoop() {
 
 function drawPlayer() {
   const x = player.x, y = player.y;
-  const ph = PLAYER_H * S;
+  const ph = playerHpx();
   const raise = state === "charging" ? Math.min(1, chargeT * 4)
               : (state === "flying" || state === "result" || state === "resultWait") ? 1 : 0;
   const cut = cutouts[charIdx];
@@ -700,7 +721,7 @@ function drawHUD() {
   ctx.fillStyle = "#fff"; ctx.font = `700 ${20 * S + 6}px sans-serif`; ctx.textBaseline = "top";
   ctx.fillText(`得分 ${score}`, 26, 22);
   ctx.fillStyle = "#bcd2ff"; ctx.font = `600 ${15 * S + 4}px sans-serif`;
-  ctx.fillText(`第 ${shotNum}/${TOTAL_SHOTS} 球 ｜ 距离 ${distanceMeters()} 米`, 26, 52);
+  ctx.fillText(`第 ${shotNum}/${TOTAL_SHOTS} 球`, 26, 52);
 
   for (let i = 0; i < TOTAL_SHOTS; i++) {
     const cx0 = 30 + i * 22, cy0 = 82;
@@ -723,8 +744,18 @@ function drawHUD() {
     ctx.beginPath(); ctx.roundRect(bx, by, bw * power, bh, 12); ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 12); ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = `700 ${15 * S + 3}px sans-serif`; ctx.textAlign = "center";
-    ctx.fillText("松开出手！", W / 2, by - 16);
+    // 完美点标记：停在这里 = 完美空心
+    const pI = idealPower();
+    const mx = bx + bw * pI;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(mx - 2.5, by - 9, 5, bh + 18);
+    ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(mx - 2.5, by - 9, 5, bh + 18);
+    ctx.font = `700 ${12 * S + 3}px sans-serif`; ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+    ctx.fillText("完美", mx, by - 26);
+    ctx.fillStyle = "#fff"; ctx.font = `700 ${15 * S + 3}px sans-serif`;
+    ctx.fillText("松开出手！", W / 2, by - 48);
     ctx.restore();
   } else if (state === "aim") {
     ctx.save();
@@ -786,12 +817,12 @@ function loop(now) {
     // 🪙 扣篮动画：飞过去 → 砸进篮筐 → 落地
     dunkAnim.t += dt;
     const t = dunkAnim.t;
-    const dunkX = hoop.cx - 34 * S;
+    const dunkX = hoop.cx - 0.35 * ppm;
     if (t < 0.55) {
       // 飞行阶段（抛物线跳起）
       const k = t / 0.55;
       player.x = dunkAnim.fromX + (dunkX - dunkAnim.fromX) * k;
-      player.y = GROUND - 170 * S * Math.sin(Math.PI * k);
+      player.y = GROUND - 1.5 * ppm * Math.sin(Math.PI * k);
       const h = handPos();
       ball.x = h.x; ball.y = h.y;
     } else if (t < 0.72) {
@@ -800,13 +831,13 @@ function loop(now) {
       player.x = dunkX;
       player.y = GROUND;
       ball.x = hoop.cx;
-      ball.y = (hoop.cy - 70 * S) + k * 95 * S;
+      ball.y = (hoop.cy - 0.6 * ppm) + k * 0.85 * ppm;
       ball.scored = true; ball.dunk = true;
       if (k >= 1) { sndSwish(); announce("暴力劈扣！💥", "#ffd54a"); }
     } else {
       // 球穿网下落，进入正常物理
       player.x = dunkX; player.y = GROUND;
-      ball.vx = 0; ball.vy = 200 * S;
+      ball.vx = 0; ball.vy = 1.8 * ppm;
       dunkAnim = null;
       state = "flying";
     }
