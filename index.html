@@ -110,9 +110,8 @@
   <button class="btn" id="retryBtn">再来一局</button>
 </div>
 
-<!-- AI 人像抠图库（本地加载） -->
-<script src="lib/tf.min.js"></script>
-<script src="lib/body-pix.min.umd.js"></script>
+<!-- 球员形象均为离线抠好的透明 PNG，无需加载 AI 抠图库，秒开 -->
+
 
 <script>
 (() => {
@@ -151,70 +150,21 @@ window.addEventListener("resize", resize);
 /* ================= 图片 ================= */
 const imgHoop = new Image(); imgHoop.src = "hoop.jpg";
 const imgChars = [new Image(), new Image()];
-imgChars[0].src = "player1.jpg";
+imgChars[0].src = "player1.png";  // 已离线抠好的透明 PNG
 imgChars[1].src = "wangze.png";   // 已离线抠好的透明 PNG
 
-/* ================= 球员抠图 ================= */
+/* ================= 球员形象 ================= */
 // cutouts[i] = {canvas, bbox:{x,y,w,h}}
 const cutouts = [null, null];
 
-function scanBBox(c) {
-  const x = c.getContext("2d");
-  const id = x.getImageData(0, 0, c.width, c.height).data;
-  let minX = c.width, minY = c.height, maxX = 0, maxY = 0;
-  for (let yy = 0; yy < c.height; yy += 2) {
-    for (let xx = 0; xx < c.width; xx += 2) {
-      if (id[(yy * c.width + xx) * 4 + 3] > 20) {
-        if (xx < minX) minX = xx; if (xx > maxX) maxX = xx;
-        if (yy < minY) minY = yy; if (yy > maxY) maxY = yy;
-      }
-    }
-  }
-  if (maxX <= minX || maxY <= minY) return null;
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
-
-// 两个角色统一用 AI 人像分割抠图
-async function prepareChar(idx) {
-  const img = imgChars[idx];
-  await new Promise(res => {
-    if (img.complete && img.naturalWidth) return res();
-    img.onload = res; img.onerror = res;
-  });
-  if (!img.naturalWidth) return;
-  const bp = window.bodyPix || window["body-pix"];
-  if (!bp) throw new Error("抠图库未加载");
-  const net = await bp.load({
-    architecture: "MobileNetV1", outputStride: 16, multiplier: 0.75, quantBytes: 2,
-    modelUrl: "lib/model/model-stride16.json"
-  });
-  const seg = await net.segmentPerson(img, { internalResolution: "medium", segmentationThreshold: 0.65 });
-  const mask = bp.toMask(seg, { r: 255, g: 255, b: 255, a: 255 }, { r: 255, g: 255, b: 255, a: 0 });
-  const person = document.createElement("canvas");
-  person.width = img.naturalWidth; person.height = img.naturalHeight;
-  const pctx = person.getContext("2d");
-  pctx.drawImage(img, 0, 0);
-  const mc = document.createElement("canvas");
-  mc.width = mask.width; mc.height = mask.height;
-  const mctx = mc.getContext("2d");
-  mctx.putImageData(mask, 0, 0);
-  mctx.filter = "blur(2px)";
-  mctx.drawImage(mc, 0, 0);
-  pctx.globalCompositeOperation = "destination-in";
-  pctx.drawImage(mc, 0, 0, person.width, person.height);
-  const bbox = scanBBox(person);
-  if (!bbox) throw new Error("char" + idx + " mask empty");
-  cutouts[idx] = { canvas: person, bbox };
-}
-
-// 王泽：直接加载离线抠好的透明 PNG（无需再处理）
+// 直接加载离线抠好的透明 PNG（无需任何处理，秒开）
 async function prepareCharPng(idx) {
   const img = imgChars[idx];
   await new Promise(res => {
     if (img.complete && img.naturalWidth) return res();
     img.onload = res; img.onerror = res;
   });
-  if (!img.naturalWidth) throw new Error("wangze.png 未加载");
+  if (!img.naturalWidth) throw new Error("char" + idx + " 图片未加载");
   cutouts[idx] = {
     canvas: img,
     bbox: { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight }
@@ -223,11 +173,11 @@ async function prepareCharPng(idx) {
 
 async function prepareAll() {
   const status = document.getElementById("loadStatus");
-  const results = await Promise.allSettled([prepareChar(0), prepareCharPng(1)]);
+  const results = await Promise.allSettled([prepareCharPng(0), prepareCharPng(1)]);
   const failed = results.filter(r => r.status === "rejected");
   if (failed.length) {
-    console.warn("抠图失败：", failed.map(f => f.reason));
-    status.textContent = "⚠️ 部分球员抠图失败（已用照片模式）";
+    console.warn("形象加载失败：", failed.map(f => f.reason));
+    status.textContent = "⚠️ 部分球员形象加载失败（已用照片模式）";
   } else {
     status.textContent = "✅ 球员形象就绪！";
   }
