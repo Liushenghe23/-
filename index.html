@@ -32,9 +32,9 @@
   #finalComment { font-size: clamp(16px, 4.5vw, 24px); font-weight: 700; }
   .shot-record { font-size: 14px; color: #bcd2ff; letter-spacing: 1px; }
 
-  .chars { display: flex; gap: 22px; margin: 4px 0; }
+  .chars { display: flex; gap: 14px; margin: 4px 0; }
   .char-card {
-    width: clamp(120px, 28vw, 170px); cursor: pointer; border-radius: 18px;
+    width: clamp(105px, 26vw, 160px); cursor: pointer; border-radius: 18px;
     background: rgba(255,255,255,.08); border: 3px solid transparent;
     padding: 12px; transition: transform .15s, border-color .15s;
   }
@@ -90,6 +90,11 @@
       <img src="wangze-card.jpg" alt="王泽">
       <span class="cname">王泽</span>
       <span class="cskill">💥 王泽肘击：冲到篮下<br>🧈 肥油二次：投丢再投</span>
+    </div>
+    <div class="char-card" id="char3">
+      <img src="tianpeng-card.png" alt="田鹏">
+      <span class="cname">田鹏</span>
+      <span class="cskill">🏀 后撤三分：撤到三分线超准出手<br>🐢 龟：无论进否罚球线再投一次</span>
     </div>
   </div>
   <div class="subtitle">
@@ -150,13 +155,14 @@ window.addEventListener("resize", resize);
 
 /* ================= 图片 ================= */
 const imgHoop = new Image(); imgHoop.src = "hoop.jpg";
-const imgChars = [new Image(), new Image()];
-imgChars[0].src = "player1.png";  // 已离线抠好的透明 PNG
-imgChars[1].src = "wangze.png";   // 已离线抠好的透明 PNG
+const imgChars = [new Image(), new Image(), new Image()];
+imgChars[0].src = "player1.png";   // 已离线抠好的透明 PNG
+imgChars[1].src = "wangze.png";    // 已离线抠好的透明 PNG
+imgChars[2].src = "tianpeng.png";  // 已离线抠好的透明 PNG
 
 /* ================= 球员形象 ================= */
 // cutouts[i] = {canvas, bbox:{x,y,w,h}}
-const cutouts = [null, null];
+const cutouts = [null, null, null];
 
 // 直接加载离线抠好的透明 PNG（无需任何处理，秒开）
 async function prepareCharPng(idx) {
@@ -174,7 +180,7 @@ async function prepareCharPng(idx) {
 
 async function prepareAll() {
   const status = document.getElementById("loadStatus");
-  const results = await Promise.allSettled([prepareCharPng(0), prepareCharPng(1)]);
+  const results = await Promise.allSettled([prepareCharPng(0), prepareCharPng(1), prepareCharPng(2)]);
   const failed = results.filter(r => r.status === "rejected");
   if (failed.length) {
     console.warn("形象加载失败：", failed.map(f => f.reason));
@@ -240,9 +246,11 @@ let announceText = "", announceColor = "#fff", announceT = 0;
 let tangAnim = null;                    // 三不沾：巨大"唐"字飞屏动画
 
 // 技能
-let skills = { greed: 0, elbow: 0, second: 0 };
+let skills = { greed: 0, elbow: 0, second: 0, stepback: 0, turtle: 0 };
 let greedArmed = false;
 let secondChanceArmed = false;
+let stepbackArmed = false;
+let turtleArmed = false;
 let skillAnim = null;
 let dunkAnim = null;
 
@@ -254,10 +262,10 @@ function handPos() {
 }
 // 持球点
 function chestPos() {
-  // 王泽是双臂高举的跳投姿势，球在举起的手附近
-  return charIdx === 1
-    ? { x: player.x + 0.16 * ppm, y: player.y - 1.58 * ppm }
-    : { x: player.x + 0.22 * ppm, y: player.y - 0.95 * ppm };
+  // 王泽/田鹏是双臂高举的跳投姿势，球在举起的手附近
+  if (charIdx === 1) return { x: player.x + 0.16 * ppm, y: player.y - 1.58 * ppm };
+  if (charIdx === 2) return { x: player.x + 0.14 * ppm, y: player.y - 1.65 * ppm };
+  return { x: player.x + 0.22 * ppm, y: player.y - 0.95 * ppm };
 }
 function isCloseRange() {
   return (hoop.cx - handPos().x) < CLOSE_M * ppm;
@@ -288,6 +296,8 @@ const sndSwish  = () => { beep(880, 0.15, "sine", 0.15, 220); setTimeout(() => b
 const sndScore  = () => { beep(660, 0.12, "triangle", 0.15); setTimeout(() => beep(990, 0.2, "triangle", 0.13), 100); };
 const sndBad    = () => beep(220, 0.4, "sawtooth", 0.12, -120);
 const sndTang   = () => { beep(90, 0.5, "sawtooth", 0.18, -50); setTimeout(() => beep(60, 0.6, "sine", 0.2, -20), 150); };
+const sndStep   = () => beep(400, 0.15, "triangle", 0.12, -200);
+const sndTurtle = () => { beep(100, 0.25, "sine", 0.15, 120); setTimeout(() => beep(80, 0.3, "triangle", 0.12, 60), 200); };
 const sndElbow  = () => { beep(180, 0.15, "sawtooth", 0.15, 120); setTimeout(() => beep(90, 0.2, "sine", 0.2, -30), 120); };
 
 function announce(text, color) {
@@ -344,6 +354,7 @@ function shoot() {
 
 function settleShot() {
   if (state !== "flying") return;
+  stepbackArmed = false;   // 后撤三分：无论进否都清除
   // 🧈 肥油二次：投丢后篮下抢板再投，不消耗投篮次数
   if (!ball.scored && secondChanceArmed) {
     secondChanceArmed = false;
@@ -416,7 +427,7 @@ function updateSkillButtons() {
     skill1Btn.innerHTML = greedArmed
       ? `🪙 无尽贪婪<span class="cnt">已启动：出手即飞扣！</span>`
       : `🪙 无尽贪婪<span class="cnt">无视力度直接扣篮 · 剩 ${skills.greed} 次</span>`;
-  } else {
+  } else if (charIdx === 1) {
     // 王泽：肘击 + 肥油二次
     skill1Btn.style.display = "";
     skill2Btn.style.display = "";
@@ -426,10 +437,22 @@ function updateSkillButtons() {
     skill2Btn.innerHTML = secondChanceArmed
       ? `🧈 肥油二次<span class="cnt">已启动：投丢可再投</span>`
       : `🧈 肥油二次<span class="cnt">投丢抢板再投 · 剩 ${skills.second} 次</span>`;
+  } else {
+    // 田鹏：后撤三分 + 龟
+    skill1Btn.style.display = "";
+    skill2Btn.style.display = "";
+    skill1Btn.disabled = skills.stepback <= 0 || state !== "aim" || stepbackArmed;
+    skill2Btn.disabled = skills.turtle <= 0 || state !== "aim" || turtleArmed;
+    skill1Btn.innerHTML = stepbackArmed
+      ? `🏀 后撤三分<span class="cnt">已启动：撤到三分线</span>`
+      : `🏀 后撤三分<span class="cnt">撤到三分线超准出手 · 剩 ${skills.stepback} 次</span>`;
+    skill2Btn.innerHTML = turtleArmed
+      ? `🐢 龟<span class="cnt">已启动：进否都有罚球</span>`
+      : `🐢 龟<span class="cnt">无论进否罚球线再投 · 剩 ${skills.turtle} 次</span>`;
   }
 }
 
-// 技能1：豆豆=无尽贪婪 / 王泽=肘击
+// 技能1：豆豆=无尽贪婪 / 王泽=肘击 / 田鹏=后撤三分
 skill1Btn.addEventListener("click", () => {
   if (state !== "aim") return;
   if (charIdx === 0) {
@@ -439,7 +462,7 @@ skill1Btn.addEventListener("click", () => {
     greedArmed = true;
     announce("无尽贪婪已启动！🪙", "#ffd54a");
     sndScore();
-  } else {
+  } else if (charIdx === 1) {
     // 💥 王泽肘击：冲到篮下最远位置
     if (skills.elbow <= 0 || isCloseRange()) return;
     skills.elbow--;
@@ -448,17 +471,38 @@ skill1Btn.addEventListener("click", () => {
     state = "skillAnim";
     announce("王泽肘击！💥", "#ff8a65");
     sndElbow();
+  } else {
+    // 🏀 后撤三分：撤到三分线 + 本球超准
+    if (skills.stepback <= 0 || stepbackArmed) return;
+    skills.stepback--;
+    stepbackArmed = true;
+    const threeX = hoop.cx - 6.6 * ppm - 0.32 * ppm;
+    skillAnim = { fromX: player.x, toX: threeX, t: 0, dur: 0.35 };
+    state = "skillAnim";
+    announce("后撤三分！超准出手！🏀", "#4fc3f7");
+    sndStep();
   }
   updateSkillButtons();
 });
 
-// 🧈 肥油二次：本球投丢可抢板再投
+// 技能2：王泽=肥油二次 / 田鹏=龟
 skill2Btn.addEventListener("click", () => {
-  if (state !== "aim" || skills.second <= 0 || secondChanceArmed) return;
-  skills.second--;
-  secondChanceArmed = true;
-  announce("肥油二次已启动！🧈", "#ffd54a");
-  sndScore();
+  if (state !== "aim") return;
+  if (charIdx === 1) {
+    // 🧈 肥油二次：本球投丢可抢板再投
+    if (skills.second <= 0 || secondChanceArmed) return;
+    skills.second--;
+    secondChanceArmed = true;
+    announce("肥油二次已启动！🧈", "#ffd54a");
+    sndScore();
+  } else if (charIdx === 2) {
+    // 🐢 龟：无论进否，额外获得罚球线出手
+    if (skills.turtle <= 0 || turtleArmed) return;
+    skills.turtle--;
+    turtleArmed = true;
+    announce("龟！罚球线复活！🐢", "#81c784");
+    sndTurtle();
+  }
   updateSkillButtons();
 });
 
@@ -527,8 +571,9 @@ function updateBall(dt) {
   if (!ball.scored && ball.vy > 0 && prevY < hoop.cy && ball.y >= hoop.cy) {
     const t = (hoop.cy - prevY) / (ball.y - prevY);
     const crossX = prevX + (ball.x - prevX) * t;
-    if (Math.abs(crossX - hoop.cx) < hoop.rimR * 0.85) {
+    if (Math.abs(crossX - hoop.cx) < hoop.rimR * (stepbackArmed ? 1.5 : 0.85)) {
       ball.scored = true;
+      stepbackArmed = false;    // 后撤三分命中即消
       ball.vx *= 0.25;
       ball.vy = Math.min(ball.vy, 260 * S);
     }
@@ -656,7 +701,7 @@ function drawPlayer() {
   ctx.beginPath(); ctx.ellipse(x + 10 * S, y + 4 * S, 38 * S, 8 * S, 0, 0, Math.PI * 2); ctx.fill();
 
   ctx.translate(x, y);
-  ctx.rotate(-(charIdx === 1 ? 0.04 : 0.08) * raise);
+  ctx.rotate(-(charIdx >= 1 ? 0.04 : 0.08) * raise);
   ctx.translate(-x, -y);
 
   if (cut) {
@@ -869,11 +914,25 @@ function loop(now) {
     updateBall(dt);
     if (state === "result") {
       resultTimer -= dt;
-      if (resultTimer <= 0) showNextButton();
+      if (resultTimer <= 0) {
+        if (turtleArmed) {
+          // 🐢 龟：无论进否，额外罚球线出手机会
+          turtleArmed = false;
+          player.x = hoop.cx - 4.6 * ppm - 0.32 * ppm;
+          player.y = GROUND;
+          resetBall();
+          announce("龟！罚球线追加出手！🐢", "#81c784");
+          sndTurtle();
+          state = "aim";
+          updateSkillButtons();
+        } else {
+          showNextButton();
+        }
+      }
     }
   }
 
-  // 技能按钮在瞄准时显示（两个角色都有技能）
+  // 技能按钮在瞄准时显示
   const showSkills = (state === "aim");
   if (showSkills !== skillBarVisible) {
     skillBar.style.display = showSkills ? "flex" : "none";
@@ -905,15 +964,20 @@ function pickChar(i) {
 }
 document.getElementById("char1").addEventListener("click", () => pickChar(0));
 document.getElementById("char2").addEventListener("click", () => pickChar(1));
+document.getElementById("char3").addEventListener("click", () => pickChar(2));
 
 startBtn.addEventListener("click", () => {
   if (selectedChar < 0) return;
   charIdx = selectedChar;
   document.getElementById("menu").classList.add("hidden");
   score = 0; shotNum = 0; shotHistory = [];
-  skills = charIdx === 1 ? { greed: 0, elbow: 1, second: 1 } : { greed: 2, elbow: 0, second: 0 };
+  skills = charIdx === 0 ? { greed: 2, elbow: 0, second: 0, stepback: 0, turtle: 0 }
+          : charIdx === 1 ? { greed: 0, elbow: 1, second: 1, stepback: 0, turtle: 0 }
+                          : { greed: 0, elbow: 0, second: 0, stepback: 1, turtle: 1 };
   greedArmed = false;
   secondChanceArmed = false;
+  stepbackArmed = false;
+  turtleArmed = false;
   newShot();
 });
 document.getElementById("retryBtn").addEventListener("click", () => {
