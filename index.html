@@ -512,7 +512,7 @@ function defenderInit() {
   defender.vy = 0; defender.vx = 0;
   defender.jumping = false; defender.onGround = true;
   defender.skillActive = false;
-  defender.blockRadius = 0.24 * ppm;  // 基础防守半径（降低60%）
+  defender.blockRadius = 0.38 * ppm;  // 基础防守半径（降低60%）
   document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
   updateDefSkillButtons();
 }
@@ -909,7 +909,7 @@ function updateBall(dt) {
       announce("🛑 火锅盖帽！", "#ef5350");
       // 消耗一次性防守技能效果
       defSkills.wallActive = false; defSkills.shellActive = false;
-      defender.blockRadius = 0.24 * ppm;
+      defender.blockRadius = 0.38 * ppm;
       // 盖帽后球直接飞走，稍后 settleShot 会处理
     }
   }
@@ -969,7 +969,7 @@ function useDefSkill() {
   if (state !== "aim" && state !== "flying") return;
   if (defCharIdx === 0 && defSkills.wall > 0 && !defSkills.wallActive) {
     defSkills.wall--; defSkills.wallActive = true;
-    defender.blockRadius = 0.56 * ppm;
+    defender.blockRadius = 0.89 * ppm;
     announce("铜墙铁壁！🛡️", "#81c784"); sndScore();
   }
   if (defCharIdx === 1 && defSkills.charge > 0 && !defSkills.chargeActive) {
@@ -979,7 +979,7 @@ function useDefSkill() {
   }
   if (defCharIdx === 2 && defSkills.shell > 0 && !defSkills.shellActive) {
     defSkills.shell--; defSkills.shellActive = true;
-    defender.blockRadius = 0.72 * ppm;
+    defender.blockRadius = 1.14 * ppm;
     announce("龟壳防守！🐢", "#81c784"); sndTurtle();
   }
   updateDefSkillButtons();
@@ -1532,7 +1532,7 @@ startBtn.addEventListener("click", () => {
                           : { greed: 0, elbow: 0, second: 0, stepback: 1, turtle: 1 };
   defSkills = { wall: defCharIdx === 0 ? 1 : 0, charge: defCharIdx === 1 ? 1 : 0, shell: defCharIdx === 2 ? 1 : 0,
                 wallActive: false, chargeActive: false, shellActive: false };
-  defender.blockRadius = 0.24 * ppm;
+  defender.blockRadius = 0.38 * ppm;
   greedArmed = false;
   secondChanceArmed = false;
   stepbackArmed = false;
