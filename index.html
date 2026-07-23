@@ -538,22 +538,41 @@ function duoShoot() {
   // 真实投篮抛物线：从出手位置飞向篮筐
   const h = handPos();
   ball.x = h.x; ball.y = h.y;
-  ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = false;
+  ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
   ball.bounces = 0;
 
   const d = hoop.cx - h.x;                // 到篮筐的水平距离
   const idealV = vIdealOf(Math.max(1, d / ppm) * ppm); // 理想初速度
 
-  // 命中/打铁由速度和角度偏差决定
-  const acc = hit ? (hitRate >= 1 ? 0.97 + Math.random() * 0.03 : 0.93 + Math.random() * 0.07) : 0.5 + Math.random() * 0.35;
-  const v = idealV * acc;
-  const angleVar = hit ? (Math.random() - 0.5) * (hitRate >= 1 ? 0.015 : 0.035) : (Math.random() - 0.5) * 0.18;
-  const a = ANGLE + angleVar;
-
-  ball.vx = Math.cos(a) * v;
-  ball.vy = -Math.sin(a) * v;
+  if (hit) {
+    // 🟢 命中：精准轨迹，确保通过篮筐
+    const acc = 0.96 + Math.random() * 0.04;
+    const av = (Math.random() - 0.5) * 0.03; // ±0.86°
+    const a = ANGLE + av;
+    ball.vx = Math.cos(a) * idealV * acc;
+    ball.vy = -Math.sin(a) * idealV * acc;
+  } else {
+    // 🔴 打铁：球碰筐或碰板，不进球
+    const missType = Math.random();
+    let acc, av;
+    if (missType < 0.45) {
+      // 砸前筐：速度略慢，球在篮筐前缘下坠碰前筐
+      acc = 0.88 + Math.random() * 0.07;
+      av = (Math.random() - 0.5) * 0.035;
+    } else if (missType < 0.85) {
+      // 砸后筐/篮板：速度略快，球砸后筐或篮板弹出
+      acc = 1.04 + Math.random() * 0.06;
+      av = (Math.random() - 0.5) * 0.025;
+    } else {
+      // 砸侧筐：角度偏差
+      acc = 0.90 + Math.random() * 0.10;
+      av = (Math.random() - 0.5) * 0.12;
+    }
+    const a = ANGLE + av;
+    ball.vx = Math.cos(a) * idealV * acc;
+    ball.vy = -Math.sin(a) * idealV * acc;
+  }
   ball.spin = ball.vx * 0.03;
-
   sndShoot();
   state = "flying";
 }
