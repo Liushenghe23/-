@@ -161,7 +161,7 @@ const cutouts = [null, null];
 async function prepareCharPng(idx) {
   const img = imgChars[idx];
   await new Promise(res => {
-    if (img.complete && img.naturalWidth) return res();
+    if (img.complete) return res();   // 已加载或已失败都直接继续，避免永远等待
     img.onload = res; img.onerror = res;
   });
   if (!img.naturalWidth) throw new Error("char" + idx + " 图片未加载");
