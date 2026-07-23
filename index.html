@@ -545,28 +545,28 @@ function duoShoot() {
   const idealV = vIdealOf(Math.max(1, d / ppm) * ppm); // 理想初速度
 
   if (hit) {
-    // 🟢 命中：精准轨迹，确保通过篮筐
+    // 🟢 命中：精准轨迹通过篮筐
     const acc = 0.96 + Math.random() * 0.04;
-    const av = (Math.random() - 0.5) * 0.03; // ±0.86°
+    const av = (Math.random() - 0.5) * 0.025;
     const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   } else {
-    // 🔴 打铁：球碰筐或碰板，不进球
+    // 🔴 打铁：力度接近理想值(95-105%)确保到达篮筐，靠角度偏差让球碰筐
     const missType = Math.random();
     let acc, av;
-    if (missType < 0.45) {
-      // 砸前筐：速度略慢，球在篮筐前缘下坠碰前筐
-      acc = 0.88 + Math.random() * 0.07;
-      av = (Math.random() - 0.5) * 0.035;
+    if (missType < 0.5) {
+      // 砸前筐：速度95-100%，球到达篮筐前缘碰前筐
+      acc = 0.95 + Math.random() * 0.05;
+      av = (Math.random() - 0.5) * 0.01;
     } else if (missType < 0.85) {
-      // 砸后筐/篮板：速度略快，球砸后筐或篮板弹出
-      acc = 1.04 + Math.random() * 0.06;
-      av = (Math.random() - 0.5) * 0.025;
+      // 砸后筐/篮板：速度102-108%，球过篮筐砸后框或篮板
+      acc = 1.02 + Math.random() * 0.06;
+      av = (Math.random() - 0.5) * 0.015;
     } else {
-      // 砸侧筐：角度偏差
-      acc = 0.90 + Math.random() * 0.10;
-      av = (Math.random() - 0.5) * 0.12;
+      // 砸侧筐：速度95-102%，水平角度偏转砸侧筐
+      acc = 0.95 + Math.random() * 0.07;
+      av = (Math.random() - 0.5) * 0.08;
     }
     const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
