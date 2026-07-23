@@ -534,21 +534,27 @@ function duoShoot() {
   else hitRate = 0.39;                   // 三分线外：39%
   const hit = Math.random() < hitRate;
   ball.beyond3 = distM >= 6.6;
-  // 直接模拟进球或三不沾
-  if (hit) {
-    ball.scored = true; ball.touchedRim = ball.touchedBoard = false;
-    ball.x = hoop.cx + (Math.random() - 0.5) * hoop.rimR * 0.4;
-    ball.y = hoop.cy - ball.r;
-    ball.vy = 50;
-    sndSwish();
-  } else {
-    ball.scored = false; ball.touchedRim = ball.touchedBoard = false;
-    ball.x = hoop.cx + (Math.random() - 0.5) * hoop.rimR * 2.5;
-    ball.y = hoop.cy - 20;
-    ball.vy = 100;
-    if (Math.random() < 0.3) ball.touchedRim = true; // 30%碰筐
-    sndBad();
-  }
+
+  // 真实投篮抛物线：从出手位置飞向篮筐
+  const h = handPos();
+  ball.x = h.x; ball.y = h.y;
+  ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = false;
+  ball.bounces = 0;
+
+  const d = hoop.cx - h.x;                // 到篮筐的水平距离
+  const idealV = vIdealOf(Math.max(1, d / ppm) * ppm); // 理想初速度
+
+  // 命中/打铁由速度和角度偏差决定
+  const acc = hit ? (hitRate >= 1 ? 0.97 + Math.random() * 0.03 : 0.93 + Math.random() * 0.07) : 0.5 + Math.random() * 0.35;
+  const v = idealV * acc;
+  const angleVar = hit ? (Math.random() - 0.5) * (hitRate >= 1 ? 0.015 : 0.035) : (Math.random() - 0.5) * 0.18;
+  const a = ANGLE + angleVar;
+
+  ball.vx = Math.cos(a) * v;
+  ball.vy = -Math.sin(a) * v;
+  ball.spin = ball.vx * 0.03;
+
+  sndShoot();
   state = "flying";
 }
 
