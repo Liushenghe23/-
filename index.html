@@ -187,8 +187,8 @@
 <button class="btn" id="nextBtn">下一球 ▶</button>
 
 <div id="skillBar">
-  <button class="skill-btn" id="skill1">💥 王泽肘击<span class="cnt">冲至篮下 · 剩 1 次</span></button>
-  <button class="skill-btn" id="skill2">🧈 肥油二次<span class="cnt">投丢抢板再投 · 剩 1 次</span></button>
+  <button class="skill-btn" id="skill1">💥 王泽肘击<span class="cnt">剩 1 次</span></button>
+  <button class="skill-btn" id="skill2">🧈 肥油二次<span class="cnt">剩 1 次</span></button>
 </div>
 
 <div id="defBar">
@@ -226,12 +226,12 @@
       <div class="char-card" id="char2">
         <img src="wangze-card.jpg" alt="王泽">
         <span class="cname">王泽</span>
-        <span class="cskill">💥 王泽肘击：冲到篮下<br>🧈 肥油二次：投丢再投</span>
+        <span class="cskill">💥 王泽肘击<br>🧈 肥油二次</span>
       </div>
       <div class="char-card" id="char3">
         <img src="tianpeng-card.png" alt="田鹏">
         <span class="cname">田鹏</span>
-        <span class="cskill">🏀 后撤三分：撤到三分线超准出手<br>🐢 龟：无论进否罚球线再投一次</span>
+        <span class="cskill">🏀 后撤三分<br>🐢 龟</span>
       </div>
     </div>
   </div>
@@ -240,17 +240,17 @@
     <div class="duo-section">
       <div class="duo-label">🎯 进攻方 (P1) 选角色</div>
       <div class="chars">
-        <div class="char-card" id="p1c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">同单人技能</span></div>
-        <div class="char-card" id="p1c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">同单人技能</span></div>
-        <div class="char-card" id="p1c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">同单人技能</span></div>
+        <div class="char-card" id="p1c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">🪙 无尽贪婪</span></div>
+        <div class="char-card" id="p1c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">💥 肘击 · 🧈 二次</span></div>
+        <div class="char-card" id="p1c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">🏀 后撤三分 · 🐢 龟</span></div>
       </div>
     </div>
     <div class="duo-section">
       <div class="duo-label">🛡️ 防守方 (P2) 选角色</div>
       <div class="chars">
-        <div class="char-card" id="p2c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">🛡️ 铜墙:防守范围翻倍</span></div>
-        <div class="char-card" id="p2c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">💥 冲撞:朝球冲刺</span></div>
-        <div class="char-card" id="p2c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">🐢 龟壳:大范围防守罩</span></div>
+        <div class="char-card" id="p2c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">🛡️ 铜墙</span></div>
+        <div class="char-card" id="p2c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">💥 冲撞</span></div>
+        <div class="char-card" id="p2c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">🐢 龟壳</span></div>
       </div>
     </div>
     <div class="duo-hint">P1 触摸/空格投篮 ｜ P2 A/D移动 W跳跃 E/Q技能</div>
@@ -627,18 +627,18 @@ function updateSkillButtons() {
     skill2Btn.style.display = "none";
     skill1Btn.disabled = skills.greed <= 0 || state !== "aim" || greedArmed;
     skill1Btn.innerHTML = greedArmed
-      ? `🪙 无尽贪婪<span class="cnt">已启动：出手即飞扣！</span>`
-      : `🪙 无尽贪婪<span class="cnt">无视力度直接扣篮 · 剩 ${skills.greed} 次</span>`;
+      ? `🪙 无尽贪婪<span class="cnt">已启动</span>`
+      : `🪙 无尽贪婪<span class="cnt">剩 ${skills.greed} 次</span>`;
   } else if (charIdx === 1) {
     // 王泽：肘击 + 肥油二次
     skill1Btn.style.display = "";
     skill2Btn.style.display = "";
     skill1Btn.disabled = skills.elbow <= 0 || state !== "aim" || isCloseRange();
     skill2Btn.disabled = skills.second <= 0 || state !== "aim" || secondChanceArmed;
-    skill1Btn.innerHTML = `💥 王泽肘击<span class="cnt">冲至篮下 · 剩 ${skills.elbow} 次</span>`;
+    skill1Btn.innerHTML = `💥 王泽肘击<span class="cnt">剩 ${skills.elbow} 次</span>`;
     skill2Btn.innerHTML = secondChanceArmed
-      ? `🧈 肥油二次<span class="cnt">已启动：投丢可再投</span>`
-      : `🧈 肥油二次<span class="cnt">投丢抢板再投 · 剩 ${skills.second} 次</span>`;
+      ? `🧈 肥油二次<span class="cnt">已启动</span>`
+      : `🧈 肥油二次<span class="cnt">剩 ${skills.second} 次</span>`;
   } else {
     // 田鹏：后撤三分 + 龟
     skill1Btn.style.display = "";
@@ -646,11 +646,11 @@ function updateSkillButtons() {
     skill1Btn.disabled = skills.stepback <= 0 || state !== "aim" || stepbackArmed;
     skill2Btn.disabled = skills.turtle <= 0 || state !== "aim" || turtleArmed;
     skill1Btn.innerHTML = stepbackArmed
-      ? `🏀 后撤三分<span class="cnt">已启动：撤到三分线</span>`
-      : `🏀 后撤三分<span class="cnt">撤到三分线超准出手 · 剩 ${skills.stepback} 次</span>`;
+      ? `🏀 后撤三分<span class="cnt">已启动</span>`
+      : `🏀 后撤三分<span class="cnt">剩 ${skills.stepback} 次</span>`;
     skill2Btn.innerHTML = turtleArmed
-      ? `🐢 龟<span class="cnt">已启动：进否都有罚球</span>`
-      : `🐢 龟<span class="cnt">无论进否罚球线再投 · 剩 ${skills.turtle} 次</span>`;
+      ? `🐢 龟<span class="cnt">已启动</span>`
+      : `🐢 龟<span class="cnt">剩 ${skills.turtle} 次</span>`;
   }
 }
 
@@ -888,7 +888,8 @@ function updateDefSkillButtons() {
   if (defCharIdx === 0 && s.wall > 0) txt = s.wallActive ? "🛡️已开" : "🛡️铜墙(E)";
   else if (defCharIdx === 1 && s.charge > 0) txt = s.chargeActive ? "💥冲刺" : "💥冲撞(E)";
   else if (defCharIdx === 2 && s.shell > 0) txt = s.shellActive ? "🐢已开" : "🐢龟壳(E)";
-  document.getElementById("dpadSkill").textContent = txt;
+  const btn = document.getElementById("dpadSkill");
+  btn.textContent = txt; btn.style.fontSize = txt.length > 4 ? "11px" : "13px";
 }
 
 function useDefSkill() {
