@@ -523,7 +523,7 @@ window.addEventListener("keyup", e => {
 /* ================= 物理 ================= */
 function updateBall(dt) {
   const g = gravPx();
-  const prevY = ball.y;                       // 记录本帧之前的位置
+  const prevX = ball.x, prevY = ball.y;         // 记录本帧之前的位置
   ball.vy += g * dt;
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
@@ -536,7 +536,7 @@ function updateBall(dt) {
   for (const p of pts) {
     const dx = ball.x - p.x, dy = ball.y - p.y;
     const dist = Math.hypot(dx, dy);
-    const minD = ball.r + 4 * S;
+    const minD = ball.r + Math.max(1.5, 0.02 * ppm);   // 篮筐粗细按场地比例缩放
     if (dist < minD && dist > 0.01) {
       const nx = dx / dist, ny = dy / dist;
       const dot = ball.vx * nx + ball.vy * ny;
@@ -563,14 +563,16 @@ function updateBall(dt) {
     ball.touchedBoard = true;
   }
 
-  // 进球判定：必须上一帧在篮筐上方，本帧向下穿越篮筐平面
-  if (!ball.scored && ball.vy > 0 &&
-      prevY < hoop.cy - ball.r * 0.5 &&
-      ball.y - ball.r * 0.2 >= hoop.cy &&
-      Math.abs(ball.x - hoop.cx) < hoop.rimR * 0.8) {
-    ball.scored = true;
-    ball.vx *= 0.25;
-    ball.vy = Math.min(ball.vy, 260 * S);
+  // 进球判定：球心从篮筐平面上方穿越到下方即算进
+  // 用线性插值求穿越点的 x 坐标，防止高速下落时一帧跳过判定窗口
+  if (!ball.scored && ball.vy > 0 && prevY < hoop.cy && ball.y >= hoop.cy) {
+    const t = (hoop.cy - prevY) / (ball.y - prevY);
+    const crossX = prevX + (ball.x - prevX) * t;
+    if (Math.abs(crossX - hoop.cx) < hoop.rimR * 0.85) {
+      ball.scored = true;
+      ball.vx *= 0.25;
+      ball.vy = Math.min(ball.vy, 260 * S);
+    }
   }
 
   if (ball.scored && ball.y < hoop.cy + 90 * S) {
