@@ -95,7 +95,8 @@
   <div class="subtitle">
     <b>按住屏幕蓄力，松开投篮</b> —— 力度决定距离！<br>
     空心入网 <b style="color:#ffd54a">+3</b> ｜ 打板/碰筐进 <b style="color:#9ccc65">+2</b> ｜
-    没进 0 ｜ 三不沾 <b style="color:#ef5350">-1</b> ｜ 共 5 球
+    没进 0 ｜ 三不沾 <b style="color:#ef5350">-1</b> ｜ 共 5 球<br>
+    🎯 <b style="color:#ffd54a">三分线外出手，得分 +1！</b>
   </div>
   <div id="loadStatus">正在准备球员形象…</div>
   <button class="btn" id="startBtn" disabled>请先选择球员</button>
@@ -261,7 +262,7 @@ function isCloseRange() {
   return (hoop.cx - handPos().x) < CLOSE_M * ppm;
 }
 
-const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 13 * S, dunk: false,
+const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 13 * S, dunk: false, beyond3: false,
                touchedRim: false, touchedBoard: false, scored: false, bounces: 0, spin: 0 };
 
 /* ================= 音效 ================= */
@@ -313,11 +314,13 @@ function newShot() {
 function resetBall() {
   const h = chestPos();
   ball.x = h.x; ball.y = h.y; ball.vx = 0; ball.vy = 0;
-  ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = false;
+  ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.beyond3 = false;
   ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
 }
 
 function shoot() {
+  // 三分线外(6.6m)出手：本球得分 +1
+  ball.beyond3 = (hoop.cx - handPos().x) >= 6.6 * ppm;
   // 🪙 无尽贪婪：无视力度，直接起飞扣篮
   if (greedArmed) {
     greedArmed = false;
@@ -364,6 +367,11 @@ function settleShot() {
   } else {
     text = "差一点…… +0"; pts = 0; color = "#b0bec5";
   }
+  // 🎯 三分线外出手：得分 +1
+  if (ball.beyond3) {
+    pts += 1;
+    text += "（三分加成+1）";
+  }
   score += pts;
   shotHistory.push(pts);
   resultText = text; resultColor = color; resultTimer = 1.2;
@@ -386,11 +394,9 @@ function endGame() {
   state = "gameover";
   document.getElementById("finalScore").textContent = score + " 分";
   let comment;
-  if (score >= 13)      comment = "🏆 神射手！库里附体！";
-  else if (score >= 9)  comment = "🔥 手感火热，太准了！";
-  else if (score >= 5)  comment = "👍 表现不错，继续加油！";
-  else if (score >= 1)  comment = "💪 还得多练练手感～";
-  else                  comment = "😅 篮筐今天跟你过不去……";
+  if (score >= 9)       comment = "🏀 直接随意打进！";
+  else if (score >= 5)  comment = "🧱 继续沉淀";
+  else                  comment = "😭 真废了";
   document.getElementById("finalComment").textContent = comment;
   document.getElementById("shotRecord").textContent =
     "每球得分：" + shotHistory.map(p => (p > 0 ? "+" + p : p)).join(" ｜ ");
@@ -713,7 +719,7 @@ function drawHUD() {
     ctx.beginPath(); ctx.arc(cx0, cy0, 7, 0, Math.PI * 2);
     const p = shotHistory[i];
     ctx.fillStyle = p === undefined ? "rgba(255,255,255,.2)"
-                  : p === 3 ? "#ffd54a" : p === 2 ? "#9ccc65" : p === 0 ? "#78909c" : "#ef5350";
+                  : p >= 3 ? "#ffd54a" : p === 2 ? "#9ccc65" : p === 1 ? "#4dd0e1" : p === 0 ? "#78909c" : "#ef5350";
     ctx.fill();
   }
   ctx.restore();
@@ -748,6 +754,14 @@ function drawHUD() {
     ctx.font = `600 ${15 * S + 4}px sans-serif`;
     ctx.textAlign = "center";
     ctx.fillText("按住屏幕蓄力，松开投篮", W / 2, H - 40);
+    // 三分线外提示
+    if ((hoop.cx - handPos().x) >= 6.6 * ppm) {
+      ctx.fillStyle = "#ffd54a";
+      ctx.font = `800 ${16 * S + 5}px sans-serif`;
+      ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,.55)";
+      ctx.strokeText("🎯 三分线外：得分 +1！", W / 2, H - 68);
+      ctx.fillText("🎯 三分线外：得分 +1！", W / 2, H - 68);
+    }
     ctx.restore();
   }
 
