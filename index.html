@@ -724,17 +724,29 @@ skill1Btn.addEventListener("click", () => {
     announce("无尽贪婪已启动！🪙", "#ffd54a");
     sndScore();
   } else if (charIdx === 1) {
-    // 💥 王泽肘击：冲到篮下最远位置
-    if (skills.elbow <= 0 || isCloseRange()) return;
+    // 💥 王泽肘击：前进3米，遇到球员将其向前推2米
+    if (skills.elbow <= 0) return;
     skills.elbow--;
-  const targetX = hoop.cx - 3.0 * ppm - 0.32 * ppm;   // 冲到篮下最远位置
+    const advanceX = player.x + 3.0 * ppm;
+    const targetX = Math.min(advanceX, hoop.cx - 0.3 * ppm);
+    // 如果防守者在前进路径上，将其向前推2米
+    if (mode === "duo" && defender.x > player.x && defender.x < targetX + 1.5 * ppm) {
+      defender.x += 2.0 * ppm;
+      announce("王泽肘击！撞飞防守！💥", "#ff8a65");
+    } else {
+      announce("王泽肘击！💥", "#ff8a65");
+    }
     skillAnim = { fromX: player.x, toX: targetX, t: 0, dur: 0.35 };
     state = "skillAnim";
-    announce("王泽肘击！💥", "#ff8a65");
     sndElbow();
   } else {
-    // 🏀 后撤三分：撤到三分线 + 本球超准
+    // 🏀 后撤三分：只能在三分线内1米范围内使用(5.6~6.6m)
     if (skills.stepback <= 0 || stepbackArmed) return;
+    const distM = (hoop.cx - player.x) / ppm;
+    if (distM < 5.6 || distM > 6.6) {
+      announce("离三分线太远，无法后撤！⚠️", "#ff8a65");
+      return;
+    }
     skills.stepback--;
     stepbackArmed = true;
     const threeX = hoop.cx - 6.6 * ppm - 0.32 * ppm;
@@ -947,9 +959,8 @@ function updateDefender(dt) {
     defender.y = GROUND; defender.vy = 0;
     defender.jumping = false; defender.onGround = true;
   }
-  // 全场范围：防守方可在整个右侧半场移动
-  const halfW = W / 2;
-  defender.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(player.x - 0.3 * ppm, defender.x));
+  // 全场范围：防守方可自由移动、无碰撞体积
+  defender.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(16, defender.x));
 }
 
 // 防守技能状态
@@ -1022,12 +1033,15 @@ function drawCourt() {
   ctx.ellipse(ftX, GROUND, 1.8 * ppm, Math.min(1.8 * ppm * 0.24, floorH * 0.5), 0, 0, Math.PI);
   ctx.stroke();
 
-  // 右侧三分线（弧顶大圆弧）
+  // 右侧三分线（弧顶大圆弧，限定在右半场）
+  ctx.save();
+  ctx.beginPath(); ctx.rect(W / 2, GROUND, W / 2, floorH); ctx.clip();
   ctx.strokeStyle = "#ffd54a";
   ctx.lineWidth = Math.max(3.5, 5 * S);
   ctx.beginPath();
   ctx.ellipse(hoop.cx, GROUND, tpR, arcRY, 0, Math.PI * 0.5, Math.PI);
   ctx.stroke();
+  ctx.restore();
 
   // 双人模式：左侧对称半场
   if (mode === "duo") {
@@ -1039,10 +1053,13 @@ function drawCourt() {
     ctx.strokeRect(lftX, GROUND + 1, baseX - ftX, floorH - 1);
     ctx.strokeStyle = "#fff";
     ctx.beginPath(); ctx.moveTo(lftX, GROUND); ctx.lineTo(lftX, H); ctx.stroke();
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, GROUND, W / 2, floorH); ctx.clip();
     ctx.strokeStyle = "#ffd54a";
     ctx.beginPath();
-    ctx.ellipse(lHoopX, GROUND, tpR, arcRY, 0, 0, Math.PI * 0.5);
+    ctx.ellipse(lHoopX, GROUND, tpR, arcRY, Math.PI, Math.PI * 0.5, Math.PI);
     ctx.stroke();
+    ctx.restore();
     // 中线
     ctx.strokeStyle = "rgba(255,255,255,.5)";
     ctx.lineWidth = Math.max(2, 3 * S);
