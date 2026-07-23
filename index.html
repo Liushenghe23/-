@@ -109,6 +109,76 @@
     background: none; border: none; margin-top: 10px; text-decoration: underline;
   }
   .lb-clear:hover { color: #ef5350; }
+
+  /* ---- 模式选择 ---- */
+  .mode-select { display: flex; gap: 10px; margin: 6px 0; }
+  .mode-btn {
+    font-size: clamp(13px, 3vw, 16px); font-weight: 700; color: #fff;
+    background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2);
+    border-radius: 999px; padding: 10px 24px; cursor: pointer; transition: all .15s;
+  }
+  .mode-btn.active { background: rgba(255,213,74,.2); border-color: #ffd54a; color: #ffd54a; }
+  .mode-btn:active { transform: scale(.95); }
+
+  /* ---- 双人选人 ---- */
+  .duo-section { width: min(90vw, 480px); margin: 4px 0; }
+  .duo-section .duo-label { font-size: 14px; font-weight: 700; color: #bcd2ff; margin-bottom: 4px; text-align: left; }
+  .duo-section .chars { gap: 8px; }
+  .duo-section .char-card { width: clamp(90px, 22vw, 130px); padding: 8px; }
+  .duo-section .char-card img { aspect-ratio: 2/3; }
+  .duo-section .char-card .cskill { font-size: 10px; }
+  .duo-hint { font-size: 12px; color: #8fb3f0; margin: 2px 0; }
+
+  /* ---- 防守方场上信息 ---- */
+  #defBar {
+    position: fixed; left: 50%; top: 6px; transform: translateX(-50%);
+    display: none; align-items: center; gap: 12px; z-index: 14;
+    background: rgba(0,0,0,.5); border-radius: 999px; padding: 6px 16px;
+    font-size: 13px; color: #fff; white-space: nowrap;
+  }
+  #defBar .def-name { font-weight: 700; color: #81c784; }
+  #defBar .def-stat { color: #bcd2ff; }
+  #defBar .def-keyhint { color: rgba(255,255,255,.5); font-size: 11px; }
+
+  /* ---- 虚拟方向键 (P2 移动端) ---- */
+  #dpad {
+    position: fixed; left: 8px; bottom: 8%; display: none; z-index: 15;
+    width: 130px; height: 130px; touch-action: none;
+  }
+  #dpad .row { display: flex; justify-content: center; }
+  .dpad-btn {
+    width: 42px; height: 42px; margin: 1px; border-radius: 10px;
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+    color: #fff; font-size: 20px; display: flex; align-items: center;
+    justify-content: center; user-select: none; touch-action: none;
+  }
+  .dpad-btn:active { background: rgba(255,255,255,.3); }
+  #dpadAct {
+    position: fixed; left: 148px; bottom: 15%; display: none; gap: 6px; z-index: 15;
+  }
+  .dpad-act-btn {
+    width: 52px; height: 52px; border-radius: 12px;
+    background: rgba(255, 193, 7, .25); border: 1px solid rgba(255,193,7,.4);
+    color: #fff; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; touch-action: none;
+  }
+  .dpad-act-btn:active { background: rgba(255,193,7,.4); }
+  .dpad-act-btn.skill { background: rgba(239,83,80,.25); border-color: rgba(239,83,80,.4); }
+  .dpad-act-btn.skill:active { background: rgba(239,83,80,.4); }
+
+  /* ---- 盖帽特效 ---- */
+  .block-text {
+    position: fixed; left: 50%; top: 25%; transform: translateX(-50%);
+    font-size: clamp(32px, 10vw, 56px); font-weight: 900; z-index: 20;
+    color: #ef5350; text-shadow: 0 4px 0 #b71c1c, 0 8px 24px rgba(0,0,0,.6);
+    pointer-events: none; animation: blockPop .5s ease-out forwards;
+  }
+  @keyframes blockPop {
+    0% { transform: translateX(-50%) scale(.5); opacity: 0; }
+    30% { transform: translateX(-50%) scale(1.2); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1); opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -121,28 +191,71 @@
   <button class="skill-btn" id="skill2">🧈 肥油二次<span class="cnt">投丢抢板再投 · 剩 1 次</span></button>
 </div>
 
+<div id="defBar">
+  <span class="def-name">🛡️ <span id="defName">防守方</span></span>
+  <span class="def-stat">盖帽: <span id="defBlocks">0</span></span>
+  <span class="def-keyhint">A/D移动 W跳跃 E/Q技能</span>
+</div>
+
+<!-- 移动端 P2 虚拟按键 -->
+<div id="dpad">
+  <div class="row"><div class="dpad-btn" id="dpadU">▲</div></div>
+  <div class="row"><div class="dpad-btn" id="dpadL">◀</div><div class="dpad-btn" id="dpadD">▼</div><div class="dpad-btn" id="dpadR">▶</div></div>
+</div>
+<div id="dpadAct">
+  <div class="dpad-act-btn" id="dpadJump">⬆ 跳</div>
+  <div class="dpad-act-btn skill" id="dpadSkill">E</div>
+</div>
+
 <!-- 开始 / 选人界面 -->
 <div id="menu" class="overlay">
   <button class="lb-btn" id="lbOpenBtn">🏆 排行榜</button>
   <div class="title">🏀 投篮挑战赛</div>
-  <div class="chars">
-    <div class="char-card" id="char1">
-      <img src="player1.jpg" alt="豆豆">
-      <span class="cname">豆豆</span>
-      <span class="cskill">❓❓❓</span>
-    </div>
-    <div class="char-card" id="char2">
-      <img src="wangze-card.jpg" alt="王泽">
-      <span class="cname">王泽</span>
-      <span class="cskill">💥 王泽肘击：冲到篮下<br>🧈 肥油二次：投丢再投</span>
-    </div>
-    <div class="char-card" id="char3">
-      <img src="tianpeng-card.png" alt="田鹏">
-      <span class="cname">田鹏</span>
-      <span class="cskill">🏀 后撤三分：撤到三分线超准出手<br>🐢 龟：无论进否罚球线再投一次</span>
+  <div class="mode-select">
+    <button class="mode-btn active" id="modeSingle">🏀 单人</button>
+    <button class="mode-btn" id="modeDuo">👥 双人对战</button>
+  </div>
+  <!-- 单人模式选人 -->
+  <div id="singleChars">
+    <div class="chars">
+      <div class="char-card" id="char1">
+        <img src="player1.jpg" alt="豆豆">
+        <span class="cname">豆豆</span>
+        <span class="cskill">❓❓❓</span>
+      </div>
+      <div class="char-card" id="char2">
+        <img src="wangze-card.jpg" alt="王泽">
+        <span class="cname">王泽</span>
+        <span class="cskill">💥 王泽肘击：冲到篮下<br>🧈 肥油二次：投丢再投</span>
+      </div>
+      <div class="char-card" id="char3">
+        <img src="tianpeng-card.png" alt="田鹏">
+        <span class="cname">田鹏</span>
+        <span class="cskill">🏀 后撤三分：撤到三分线超准出手<br>🐢 龟：无论进否罚球线再投一次</span>
+      </div>
     </div>
   </div>
-  <div class="subtitle">
+  <!-- 双人对战选人 -->
+  <div id="duoChars" style="display:none">
+    <div class="duo-section">
+      <div class="duo-label">🎯 进攻方 (P1) 选角色</div>
+      <div class="chars">
+        <div class="char-card" id="p1c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">同单人技能</span></div>
+        <div class="char-card" id="p1c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">同单人技能</span></div>
+        <div class="char-card" id="p1c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">同单人技能</span></div>
+      </div>
+    </div>
+    <div class="duo-section">
+      <div class="duo-label">🛡️ 防守方 (P2) 选角色</div>
+      <div class="chars">
+        <div class="char-card" id="p2c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">🛡️ 铜墙:防守范围翻倍</span></div>
+        <div class="char-card" id="p2c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">💥 冲撞:朝球冲刺</span></div>
+        <div class="char-card" id="p2c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">🐢 龟壳:大范围防守罩</span></div>
+      </div>
+    </div>
+    <div class="duo-hint">P1 触摸/空格投篮 ｜ P2 A/D移动 W跳跃 E/Q技能</div>
+  </div>
+  <div class="subtitle" id="modeSubtitle">
     <b>按住屏幕蓄力，松开投篮</b> —— 力度决定距离！<br>
     空心入网 <b style="color:#ffd54a">+3</b> ｜ 打板/碰筐进 <b style="color:#9ccc65">+2</b> ｜
     没进 0 ｜ 三不沾 <b style="color:#ef5350">-1</b> ｜ 共 5 球<br>
@@ -291,13 +404,22 @@ const playerHpx = () => 1.75 * ppm;           // 球员身高约 1.75 米
 const CLOSE_M = 3.2;                          // 篮下范围（米）
 
 let state = "menu";   // menu | aim | charging | flying | result | resultWait | skillAnim | gameover
+let mode = "single";  // "single" | "duo"
 let charIdx = 0;
+let defCharIdx = 0;   // 防守方角色索引 (2P)
 let score = 0, shotNum = 0;
+let blockCount = 0;   // 防守方盖帽次数
 let shotHistory = [];
 let power = 0, chargeT = 0;
 let resultText = "", resultColor = "#fff", resultTimer = 0;
 let announceText = "", announceColor = "#fff", announceT = 0;
 let tangAnim = null;                    // 三不沾：巨大"唐"字飞屏动画
+
+// 防守方 (2P)
+let defender = { x: 0, y: 0, vy: 0, vx: 0, jumping: false, onGround: true,
+                 skillActive: false, blockRadius: 0, facing: 0 };
+let defKeys = { left: false, right: false, jump: false, skill1: false, skill2: false };
+let blockAnim = null;   // 盖帽特效计时器
 
 // 技能
 let skills = { greed: 0, elbow: 0, second: 0, stepback: 0, turtle: 0 };
@@ -375,6 +497,20 @@ function newShot() {
   skillAnim = null;
   state = "aim";
   updateSkillButtons();
+  if (mode === "duo") defenderInit();
+}
+
+function defenderInit() {
+  // 防守方初始站在进攻方和篮筐中间偏篮筐一些
+  const midX = (player.x + hoop.cx) / 2;
+  defender.x = Math.min(midX, hoop.cx - 2 * ppm);
+  defender.y = GROUND;
+  defender.vy = 0; defender.vx = 0;
+  defender.jumping = false; defender.onGround = true;
+  defender.skillActive = false;
+  defender.blockRadius = 0.6 * ppm;  // 基础防守半径
+  document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
+  updateDefSkillButtons();
 }
 
 function resetBall() {
@@ -461,15 +597,26 @@ nextBtn.addEventListener("click", () => {
 function endGame() {
   state = "gameover";
   document.getElementById("finalScore").textContent = score + " 分";
-  let comment;
-  if (score >= 9)       comment = "🏀 直接随意打进！";
-  else if (score >= 5)  comment = "🧱 继续沉淀";
-  else                  comment = "😭 真废了";
+  let comment = "", extra = "";
+  if (mode === "single") {
+    if (score >= 9)       comment = "🏀 直接随意打进！";
+    else if (score >= 5)  comment = "🧱 继续沉淀";
+    else                  comment = "😭 真废了";
+  } else {
+    const defName = ["豆豆","王泽","田鹏"][defCharIdx];
+    extra = `🛡️ ${defName} 盖帽 ${blockCount} 次`;
+    if (score >= 9)       comment = "🏀 P1 轻松打进！P2 要加油了！";
+    else if (score >= 5)  comment = "🧱 P1 继续沉淀，P2 防守不错";
+    else if (blockCount >= 2) comment = "😤 P2 防守统治！P1 真废了";
+    else                  comment = "😭 真废了";
+  }
   document.getElementById("finalComment").textContent = comment;
   document.getElementById("shotRecord").textContent =
-    "每球得分：" + shotHistory.map(p => (p > 0 ? "+" + p : p)).join(" ｜ ");
+    (mode === "single" ? "每球得分：" : "进攻方得分：") +
+    shotHistory.map(p => (p > 0 ? "+" + p : p)).join(" ｜ ") +
+    (extra ? " ｜ " + extra : "");
   document.getElementById("gameover").classList.remove("hidden");
-  document.getElementById("saveScoreBtn").style.display = "";
+  document.getElementById("saveScoreBtn").style.display = mode === "single" ? "" : "none";
 }
 
 /* ================= 技能 ================= */
@@ -573,9 +720,43 @@ window.addEventListener("pointerup",   e => { pressEnd(); });
 canvas.addEventListener("contextmenu", e => e.preventDefault());
 window.addEventListener("keydown", e => {
   if (e.code === "Space" && !e.repeat) { e.preventDefault(); pressStart(); }
+  // P2 防守方按键
+  if (mode === "duo") {
+    if (e.code === "KeyA" || e.code === "ArrowLeft") { e.preventDefault(); defKeys.left = true; }
+    if (e.code === "KeyD" || e.code === "ArrowRight") { e.preventDefault(); defKeys.right = true; }
+    if ((e.code === "KeyW" || e.code === "ArrowUp") && defender.onGround) { e.preventDefault(); defKeys.jump = true; }
+    if (e.code === "KeyE" && !e.repeat) { e.preventDefault(); defKeys.skill1 = true; }
+    if (e.code === "KeyQ" && !e.repeat) { e.preventDefault(); defKeys.skill2 = true; }
+  }
 });
 window.addEventListener("keyup", e => {
   if (e.code === "Space") { e.preventDefault(); pressEnd(); }
+  if (mode === "duo") {
+    if (e.code === "KeyA" || e.code === "ArrowLeft") { defKeys.left = false; }
+    if (e.code === "KeyD" || e.code === "ArrowRight") { defKeys.right = false; }
+    if (e.code === "KeyW" || e.code === "ArrowUp") { defKeys.jump = false; }
+  }
+});
+
+/* ================= P2 移动端虚拟按键 ================= */
+const dpadIds = {
+  dpadL: "left", dpadR: "right", dpadU: "jump", dpadD: "jump",
+  dpadJump: "jump", dpadSkill: "skill1"
+};
+const dpadState = { left: false, right: false };
+Object.entries(dpadIds).forEach(([id, action]) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("touchstart", e => { e.preventDefault();
+    if (action === "skill1") { useDefSkill(); return; }
+    if (action === "jump") { defKeys.jump = true; return; }
+    dpadState[action] = true; defKeys[action] = true;
+  }, {passive:false});
+  el.addEventListener("touchend", e => { e.preventDefault();
+    if (action === "skill1" || action === "jump") return;
+    dpadState[action] = false;
+    if (!dpadState.left && !dpadState.right) { defKeys.left = false; defKeys.right = false; }
+  }, {passive:false});
 });
 
 /* ================= 物理 ================= */
@@ -634,6 +815,28 @@ function updateBall(dt) {
     }
   }
 
+  // 🛑 盖帽检测：防守方在球飞行途中触球即盖帽
+  if (mode === "duo" && !ball.scored && state === "flying" && ball.vy < 0) {
+    const defHandY = defender.y - 1.5 * ppm;
+    const dx = ball.x - defender.x;
+    const dy = ball.y - defHandY;
+    const dist = Math.hypot(dx, dy);
+    if (dist < defender.blockRadius + ball.r) {
+      ball.scored = false;
+      ball.vx = -ball.vx * 0.3;
+      ball.vy = Math.abs(ball.vy) * 0.5;
+      sndBoard();
+      blockCount++;
+      blockAnim = 1.0;
+      document.getElementById("defBlocks").textContent = blockCount;
+      announce("🛑 火锅盖帽！", "#ef5350");
+      // 消耗一次性防守技能效果
+      defSkills.wallActive = false; defSkills.shellActive = false;
+      defender.blockRadius = 0.6 * ppm;
+      // 盖帽后球直接飞走，稍后 settleShot 会处理
+    }
+  }
+
   if (ball.scored && ball.y < hoop.cy + 90 * S) {
     ball.x += (hoop.cx - ball.x) * 0.12;
   }
@@ -651,6 +854,61 @@ function updateBall(dt) {
   }
 
   if (ball.x < -60 || ball.x > W + 60 || ball.y < -H) settleShot();
+}
+
+/* ================= 防守方 (2P) ================= */
+function updateDefender(dt) {
+  const defSpeed = 4.5 * ppm;
+  const jumpV = -6.5 * ppm;
+  const g = gravPx();
+  if (defKeys.left) { defender.vx = -defSpeed; defender.facing = -1; }
+  else if (defKeys.right) { defender.vx = defSpeed; defender.facing = 1; }
+  else { defender.vx *= 0.8; if (Math.abs(defender.vx) < 20) defender.vx = 0; }
+  if (defKeys.jump && defender.onGround) {
+    defender.vy = jumpV; defender.jumping = true; defender.onGround = false; defKeys.jump = false;
+  }
+  if (!defender.onGround) defender.vy += g * dt;
+  defender.x += defender.vx * dt;
+  defender.y += defender.vy * dt;
+  if (defender.y >= GROUND) {
+    defender.y = GROUND; defender.vy = 0;
+    defender.jumping = false; defender.onGround = true;
+  }
+  const minX = Math.max(16, player.x + 0.5 * ppm);
+  const maxX = hoop.cx - 0.3 * ppm;
+  defender.x = Math.min(maxX, Math.max(minX, defender.x));
+}
+
+// 防守技能状态
+let defSkills = { wall: 0, charge: 0, shell: 0, wallActive: false, chargeActive: false, shellActive: false };
+
+function updateDefSkillButtons() {
+  const s = defSkills;
+  let txt = "—";
+  if (defCharIdx === 0 && s.wall > 0) txt = s.wallActive ? "🛡️已开" : "🛡️铜墙(E)";
+  else if (defCharIdx === 1 && s.charge > 0) txt = s.chargeActive ? "💥冲刺" : "💥冲撞(E)";
+  else if (defCharIdx === 2 && s.shell > 0) txt = s.shellActive ? "🐢已开" : "🐢龟壳(E)";
+  document.getElementById("dpadSkill").textContent = txt;
+}
+
+function useDefSkill() {
+  if (state !== "aim" && state !== "flying") return;
+  if (defCharIdx === 0 && defSkills.wall > 0 && !defSkills.wallActive) {
+    defSkills.wall--; defSkills.wallActive = true;
+    defender.blockRadius = 1.4 * ppm;
+    announce("铜墙铁壁！🛡️", "#81c784"); sndScore();
+  }
+  if (defCharIdx === 1 && defSkills.charge > 0 && !defSkills.chargeActive) {
+    defSkills.charge--; defSkills.chargeActive = true;
+    defender.vx = ((hoop.cx - 0.5 * ppm) - defender.x) / 0.3;
+    announce("野蛮冲撞！💥", "#ff8a65"); sndElbow();
+  }
+  if (defCharIdx === 2 && defSkills.shell > 0 && !defSkills.shellActive) {
+    defSkills.shell--; defSkills.shellActive = true;
+    defender.blockRadius = 1.8 * ppm;
+    announce("龟壳防守！🐢", "#81c784"); sndTurtle();
+  }
+  updateDefSkillButtons();
 }
 
 /* ================= 绘制 ================= */
@@ -790,6 +1048,43 @@ function drawPlayer() {
     const t = state === "charging" ? Math.min(1, chargeT * 4) : 0;
     drawBall(c.x + (h.x - c.x) * t, c.y + (h.y - c.y) * t, 0);
   }
+  // 防守方绘制 (2P)
+  if (mode === "duo") drawDefender();
+}
+
+function drawDefender() {
+  const x = defender.x, y = defender.y;
+  const ph = playerHpx();
+  const cut = cutouts[defCharIdx];
+  const img = imgChars[defCharIdx];
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.beginPath(); ctx.ellipse(x + 6 * S, y + 3 * S, 32 * S, 6 * S, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(x, y);
+  ctx.rotate((defender.facing || 1) * 0.06);
+  ctx.translate(-x, -y);
+  if (cut) {
+    const b = cut.bbox;
+    const scale = ph / b.h;
+    const dw = b.w * scale, dh = b.h * scale;
+    // 防守方半透明处理（与进攻方区分）
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(cut.canvas, b.x, b.y, b.w, b.h, x - dw / 2, y - dh, dw, dh);
+    ctx.globalAlpha = 1;
+  } else {
+    ctx.fillStyle = "#455a64";
+    ctx.beginPath(); ctx.roundRect(x - 20 * S, y - ph, 40 * S, ph, 16 * S); ctx.fill();
+  }
+  // 防守范围
+  ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
+  ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
+  ctx.fillStyle = "rgba(0,0,0,.5)";
+  ctx.beginPath(); ctx.roundRect(x - 24 * S, y - ph - 20 * S, 48 * S, 16 * S, 8); ctx.fill();
+  ctx.fillStyle = "#81c784"; ctx.font = `700 ${11 * S + 2}px sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("🛡️", x, y - ph - 12 * S);
+  ctx.restore();
 }
 
 function drawBall(bx, by, spin) {
@@ -881,6 +1176,21 @@ function drawHUD() {
     ctx.restore();
   }
 
+  // 盖帽特效文字
+  if (blockAnim) {
+    ctx.save();
+    const s = Math.min(1, blockAnim * 3);
+    ctx.translate(W / 2, H * 0.28);
+    ctx.scale(0.6 + 0.4 * s, 0.6 + 0.4 * s);
+    ctx.globalAlpha = Math.min(1, blockAnim * 2);
+    ctx.font = `900 ${38 * S + 16}px sans-serif`; ctx.textAlign = "center";
+    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.6)";
+    ctx.strokeText("🛑 火锅盖帽！", 0, 0);
+    ctx.fillStyle = "#ef5350";
+    ctx.fillText("🛑 火锅盖帽！", 0, 0);
+    ctx.restore();
+  }
+
   // 技能播报
   if (announceT > 0) {
     ctx.save();
@@ -923,6 +1233,13 @@ function loop(now) {
 
   if (announceT > 0) announceT -= dt;
   if (tangAnim) { tangAnim.t += dt; if (tangAnim.t >= 1.3) tangAnim = null; }
+  if (blockAnim) { blockAnim -= dt; if (blockAnim <= 0) blockAnim = null; }
+
+  // 防守方物理更新 (2P)
+  if (mode === "duo") {
+    updateDefender(dt);
+    if (defKeys.skill1) { defKeys.skill1 = false; useDefSkill(); }
+  }
 
   if (state === "charging") {
     chargeT += dt;
@@ -995,6 +1312,12 @@ function loop(now) {
     if (showSkills) updateSkillButtons();
   }
 
+  // 防守方UI (2P)
+  const showDefUI = mode === "duo" && state !== "menu" && state !== "gameover";
+  document.getElementById("defBar").style.display = showDefUI ? "flex" : "none";
+  document.getElementById("dpad").style.display = showDefUI ? "" : "none";
+  document.getElementById("dpadAct").style.display = showDefUI ? "" : "none";
+
   drawCourt();
   drawHoop();
   drawPlayer();
@@ -1009,36 +1332,94 @@ function loop(now) {
 
 /* ================= 菜单交互 ================= */
 let selectedChar = -1;
+let selectedP1 = -1, selectedP2 = -1;
 const startBtn = document.getElementById("startBtn");
+const modeSingle = document.getElementById("modeSingle");
+const modeDuo = document.getElementById("modeDuo");
+
 function pickChar(i) {
   selectedChar = i;
   document.getElementById("char1").classList.toggle("selected", i === 0);
   document.getElementById("char2").classList.toggle("selected", i === 1);
+  document.getElementById("char3").classList.toggle("selected", i === 2);
   startBtn.disabled = false;
   startBtn.textContent = "开始比赛 🏀";
 }
+function pickP1(i) {
+  selectedP1 = i;
+  document.querySelectorAll("#duoChars .duo-section:first-child .char-card")
+    .forEach((e, idx) => e.classList.toggle("selected", idx === i));
+  checkDuoReady();
+}
+function pickP2(i) {
+  selectedP2 = i;
+  document.querySelectorAll("#duoChars .duo-section:last-child .char-card")
+    .forEach((e, idx) => e.classList.toggle("selected", idx === i));
+  checkDuoReady();
+}
+function checkDuoReady() {
+  startBtn.disabled = !(selectedP1 >= 0 && selectedP2 >= 0);
+  startBtn.textContent = startBtn.disabled ? "请选择双方角色" : "开始对战 👥";
+}
+
+// 模式切换
+modeSingle.addEventListener("click", () => {
+  mode = "single"; modeSingle.classList.add("active"); modeDuo.classList.remove("active");
+  document.getElementById("singleChars").style.display = "";
+  document.getElementById("duoChars").style.display = "none";
+  startBtn.disabled = selectedChar < 0;
+  startBtn.textContent = startBtn.disabled ? "请先选择球员" : "开始比赛 🏀";
+});
+modeDuo.addEventListener("click", () => {
+  mode = "duo"; modeDuo.classList.add("active"); modeSingle.classList.remove("active");
+  document.getElementById("singleChars").style.display = "none";
+  document.getElementById("duoChars").style.display = "";
+  checkDuoReady();
+});
+
 document.getElementById("char1").addEventListener("click", () => pickChar(0));
 document.getElementById("char2").addEventListener("click", () => pickChar(1));
 document.getElementById("char3").addEventListener("click", () => pickChar(2));
+document.getElementById("p1c1").addEventListener("click", () => pickP1(0));
+document.getElementById("p1c2").addEventListener("click", () => pickP1(1));
+document.getElementById("p1c3").addEventListener("click", () => pickP1(2));
+document.getElementById("p2c1").addEventListener("click", () => pickP2(0));
+document.getElementById("p2c2").addEventListener("click", () => pickP2(1));
+document.getElementById("p2c3").addEventListener("click", () => pickP2(2));
 
 startBtn.addEventListener("click", () => {
-  if (selectedChar < 0) return;
-  charIdx = selectedChar;
+  if (mode === "single") {
+    if (selectedChar < 0) return;
+    charIdx = selectedChar;
+  } else {
+    if (selectedP1 < 0 || selectedP2 < 0) return;
+    charIdx = selectedP1;
+    defCharIdx = selectedP2;
+  }
   document.getElementById("menu").classList.add("hidden");
-  score = 0; shotNum = 0; shotHistory = [];
+  score = 0; shotNum = 0; shotHistory = []; blockCount = 0;
   skills = charIdx === 0 ? { greed: 2, elbow: 0, second: 0, stepback: 0, turtle: 0 }
           : charIdx === 1 ? { greed: 0, elbow: 1, second: 1, stepback: 0, turtle: 0 }
                           : { greed: 0, elbow: 0, second: 0, stepback: 1, turtle: 1 };
+  defSkills = { wall: defCharIdx === 0 ? 1 : 0, charge: defCharIdx === 1 ? 1 : 0, shell: defCharIdx === 2 ? 1 : 0,
+                wallActive: false, chargeActive: false, shellActive: false };
+  defender.blockRadius = 0.6 * ppm;
   greedArmed = false;
   secondChanceArmed = false;
   stepbackArmed = false;
   turtleArmed = false;
+  document.getElementById("defBlocks").textContent = "0";
   newShot();
 });
 document.getElementById("retryBtn").addEventListener("click", () => {
   document.getElementById("gameover").classList.add("hidden");
   document.getElementById("menu").classList.remove("hidden");
   document.getElementById("saveScoreBtn").style.display = "none";
+  // 重置模式按钮状态
+  modeSingle.classList.toggle("active", mode === "single");
+  modeDuo.classList.toggle("active", mode === "duo");
+  document.getElementById("singleChars").style.display = mode === "single" ? "" : "none";
+  document.getElementById("duoChars").style.display = mode === "duo" ? "" : "none";
   state = "menu";
 });
 
