@@ -65,6 +65,50 @@
   .skill-btn:active { transform: scale(.95); }
   .skill-btn:disabled { filter: grayscale(1); opacity: .45; cursor: not-allowed; }
   .skill-btn .cnt { font-size: 12.5px; opacity: .85; display: block; margin-top: 2px; }
+
+  /* ---- 排行榜 ---- */
+  .lb-btn {
+    position: absolute; top: 18px; right: 18px; z-index: 25;
+    font-size: clamp(13px, 3vw, 16px); font-weight: 700;
+    color: #fff; background: rgba(255,255,255,.12);
+    border: 2px solid rgba(255,255,255,.3); border-radius: 999px;
+    padding: 10px 18px; cursor: pointer; backdrop-filter: blur(4px);
+    transition: background .15s;
+  }
+  .lb-btn:hover { background: rgba(255,255,255,.22); }
+  .lb-btn:active { transform: scale(.95); }
+
+  #leaderboard { z-index: 30; }
+  #leaderboard .title { margin-bottom: 12px; }
+  .lb-close {
+    position: absolute; top: 16px; right: 20px;
+    font-size: 28px; cursor: pointer; color: rgba(255,255,255,.6);
+    background: none; border: none; line-height: 1;
+  }
+  .lb-close:hover { color: #fff; }
+  .lb-list { width: min(92vw, 420px); max-height: 60vh; overflow-y: auto; margin: 0 auto; }
+  .lb-item {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,.06); border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 8px; text-align: left;
+  }
+  .lb-rank { font-size: clamp(18px, 4vw, 24px); font-weight: 900; width: 36px; text-align: center; }
+  .lb-rank.gold { color: #ffd54a; }
+  .lb-rank.silver { color: #b0bec5; }
+  .lb-rank.bronze { color: #bf8f5a; }
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name { font-size: clamp(14px, 3.2vw, 17px); font-weight: 700; }
+  .lb-detail { font-size: clamp(11px, 2.6vw, 13px); color: #bcd2ff; margin-top: 2px; }
+  .lb-score {
+    font-size: clamp(18px, 4.2vw, 26px); font-weight: 900;
+    color: #ffd54a; white-space: nowrap;
+  }
+  .lb-empty { color: #bcd2ff; font-size: 15px; padding: 30px 0; }
+  .lb-clear {
+    font-size: 13px; color: rgba(255,255,255,.45); cursor: pointer;
+    background: none; border: none; margin-top: 10px; text-decoration: underline;
+  }
+  .lb-clear:hover { color: #ef5350; }
 </style>
 </head>
 <body>
@@ -78,7 +122,8 @@
 </div>
 
 <!-- 开始 / 选人界面 -->
-<div id="menu" class="overlay">
+<div id="menu" class="overlay" style="position:relative">
+  <button class="lb-btn" id="lbOpenBtn">🏆 排行榜</button>
   <div class="title">🏀 投篮挑战赛</div>
   <div class="chars">
     <div class="char-card" id="char1">
@@ -114,6 +159,15 @@
   <div id="finalComment"></div>
   <div class="shot-record" id="shotRecord"></div>
   <button class="btn" id="retryBtn">再来一局</button>
+  <button class="btn" id="saveScoreBtn" style="display:none;margin-top:8px;padding:10px 30px;font-size:15px">保存到排行榜 💾</button>
+</div>
+
+<!-- 排行榜 -->
+<div id="leaderboard" class="overlay hidden">
+  <button class="lb-close" id="lbCloseBtn">✕</button>
+  <div class="title">🏆 排行榜</div>
+  <div class="lb-list" id="lbList"></div>
+  <button class="lb-clear" id="lbClearBtn">清空所有记录</button>
 </div>
 
 <!-- 球员形象均为离线抠好的透明 PNG，无需加载 AI 抠图库，秒开 -->
@@ -415,6 +469,7 @@ function endGame() {
   document.getElementById("shotRecord").textContent =
     "每球得分：" + shotHistory.map(p => (p > 0 ? "+" + p : p)).join(" ｜ ");
   document.getElementById("gameover").classList.remove("hidden");
+  document.getElementById("saveScoreBtn").style.display = "";
 }
 
 /* ================= 技能 ================= */
@@ -983,7 +1038,78 @@ startBtn.addEventListener("click", () => {
 document.getElementById("retryBtn").addEventListener("click", () => {
   document.getElementById("gameover").classList.add("hidden");
   document.getElementById("menu").classList.remove("hidden");
+  document.getElementById("saveScoreBtn").style.display = "none";
   state = "menu";
+});
+
+/* ================= 排行榜 (localStorage) ================= */
+const LB_KEY = "hoop_leaderboard";
+const CHAR_NAMES = ["豆豆", "王泽", "田鹏"];
+
+function lbLoad() {
+  try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; } catch(e) { return []; }
+}
+function lbSave(scores) { localStorage.setItem(LB_KEY, JSON.stringify(scores)); }
+
+function lbRender() {
+  const list = document.getElementById("lbList");
+  const scores = lbLoad();
+  if (!scores.length) {
+    list.innerHTML = '<div class="lb-empty">暂无记录，快去打一局吧！🏀</div>';
+    return;
+  }
+  scores.sort((a, b) => b.score - a.score || b.time - a.time);
+  list.innerHTML = scores.map((s, i) => {
+    const rankCls = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+    const emoji = i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+    const date = new Date(s.time).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+    const detail = `${CHAR_NAMES[s.char] || "未知"} · ${date} · ${s.detail}`;
+    return `<div class="lb-item">
+      <div class="lb-rank ${rankCls}">${emoji}</div>
+      <div class="lb-info">
+        <div class="lb-name">${escHtml(s.name)}</div>
+        <div class="lb-detail">${detail}</div>
+      </div>
+      <div class="lb-score">${s.score}分</div>
+    </div>`;
+  }).join("");
+}
+function escHtml(t) { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+
+// 保存当前分数
+function lbPromptSave() {
+  const scores = lbLoad();
+  const name = prompt("输入你的名字（排行榜用）：", "");
+  if (!name || !name.trim()) return;
+  scores.push({
+    name: name.trim(),
+    score: score,
+    char: charIdx,
+    time: Date.now(),
+    detail: shotHistory.map(p => (p > 0 ? "+" + p : p)).join(","),
+  });
+  lbSave(scores);
+  document.getElementById("saveScoreBtn").style.display = "none";
+  announce("已保存到排行榜！🏆", "#ffd54a");
+}
+
+// 在结算界面显示保存按钮
+const saveScoreBtn = document.getElementById("saveScoreBtn");
+saveScoreBtn.addEventListener("click", lbPromptSave);
+
+// 排行榜打开/关闭
+document.getElementById("lbOpenBtn").addEventListener("click", () => {
+  lbRender();
+  document.getElementById("leaderboard").classList.remove("hidden");
+});
+document.getElementById("lbCloseBtn").addEventListener("click", () => {
+  document.getElementById("leaderboard").classList.add("hidden");
+});
+document.getElementById("lbClearBtn").addEventListener("click", () => {
+  if (confirm("确定要清空所有排行榜记录吗？")) {
+    lbSave([]);
+    lbRender();
+  }
 });
 
 /* ================= 启动 ================= */
