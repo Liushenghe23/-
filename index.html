@@ -1455,7 +1455,7 @@ function pickP1(i) {
 }
 function pickP2(i) {
   selectedP2 = i;
-  document.querySelectorAll("#duoChars .duo-section:last-child .char-card")
+  document.querySelectorAll("#duoChars .duo-section:nth-child(2) .char-card")
     .forEach((e, idx) => e.classList.toggle("selected", idx === i));
   checkDuoReady();
 }
