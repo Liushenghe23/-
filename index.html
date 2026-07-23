@@ -194,7 +194,7 @@
 <div id="defBar">
   <span class="def-name">🛡️ <span id="defName">防守方</span></span>
   <span class="def-stat">盖帽: <span id="defBlocks">0</span></span>
-  <span class="def-keyhint">A/D移动 W跳跃 E/Q技能</span>
+  <span class="def-keyhint">←→移动 ↑跳跃 E技能</span>
 </div>
 
 <!-- 移动端 P2 虚拟按键 -->
@@ -253,7 +253,7 @@
         <div class="char-card" id="p2c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">🐢 龟壳</span></div>
       </div>
     </div>
-    <div class="duo-hint">P1 触摸/空格投篮 ｜ P2 A/D移动 W跳跃 E/Q技能</div>
+    <div class="duo-hint">P1 WASD移动 W投篮 ｜ P2 ←→移动 ↑跳跃 E技能</div>
   </div>
   <div class="subtitle" id="modeSubtitle">
     <b>按住屏幕蓄力，松开投篮</b> —— 力度决定距离！<br>
@@ -489,9 +489,11 @@ let skillBarVisible = false;
 
 function newShot() {
   shotNum++;
-  const distM = 2.5 + Math.random() * 4.8;    // 投篮距离 2.5~7.3 米
-  player.x = Math.max(16, hoop.cx - distM * ppm - 0.32 * ppm);
-  player.y = GROUND;
+  if (mode !== "duo") {
+    const distM = 2.5 + Math.random() * 4.8;  // 投篮距离 2.5~7.3 米
+    player.x = Math.max(16, hoop.cx - distM * ppm - 0.32 * ppm);
+    player.y = GROUND;
+  }
   resetBall();
   power = 0; chargeT = 0;
   skillAnim = null;
@@ -501,14 +503,16 @@ function newShot() {
 }
 
 function defenderInit() {
-  // 防守方初始站在进攻方和篮筐中间偏篮筐一些
-  const midX = (player.x + hoop.cx) / 2;
-  defender.x = Math.min(midX, hoop.cx - 2 * ppm);
+  // 防守方初始站在右侧半场，进攻方在左侧半场
+  const lHoopX = W - hoop.cx;
+  player.x = lHoopX + 0.8 * ppm;  // P1 在左侧三分线附近
+  defender.x = hoop.cx - 3 * ppm;  // P2 在右侧罚球线附近
+  player.y = GROUND;
   defender.y = GROUND;
   defender.vy = 0; defender.vx = 0;
   defender.jumping = false; defender.onGround = true;
   defender.skillActive = false;
-  defender.blockRadius = 0.6 * ppm;  // 基础防守半径
+  defender.blockRadius = 0.24 * ppm;  // 基础防守半径（降低60%）
   document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
   updateDefSkillButtons();
 }
@@ -518,6 +522,34 @@ function resetBall() {
   ball.x = h.x; ball.y = h.y; ball.vx = 0; ball.vy = 0;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.beyond3 = false;
   ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
+}
+
+// 2P概率投篮（无蓄力，W键直接触发）
+function duoShoot() {
+  if (state !== "aim" || mode !== "duo") return;
+  const distM = (hoop.cx - player.x) / ppm;
+  let hitRate;
+  if (distM < 2.3) hitRate = 1.0;        // 篮下：100%
+  else if (distM < 6.6) hitRate = 0.65;  // 中距离：65%
+  else hitRate = 0.39;                   // 三分线外：39%
+  const hit = Math.random() < hitRate;
+  ball.beyond3 = distM >= 6.6;
+  // 直接模拟进球或三不沾
+  if (hit) {
+    ball.scored = true; ball.touchedRim = ball.touchedBoard = false;
+    ball.x = hoop.cx + (Math.random() - 0.5) * hoop.rimR * 0.4;
+    ball.y = hoop.cy - ball.r;
+    ball.vy = 50;
+    sndSwish();
+  } else {
+    ball.scored = false; ball.touchedRim = ball.touchedBoard = false;
+    ball.x = hoop.cx + (Math.random() - 0.5) * hoop.rimR * 2.5;
+    ball.y = hoop.cy - 20;
+    ball.vy = 100;
+    if (Math.random() < 0.3) ball.touchedRim = true; // 30%碰筐
+    sndBad();
+  }
+  state = "flying";
 }
 
 function shoot() {
@@ -718,24 +750,42 @@ function pressEnd() {
 canvas.addEventListener("pointerdown", e => { e.preventDefault(); pressStart(); });
 window.addEventListener("pointerup",   e => { pressEnd(); });
 canvas.addEventListener("contextmenu", e => e.preventDefault());
+// P1(P2按键在2P模式下重新映射)
+const duoKeys = { p1Left: false, p1Right: false, p1Shoot: false, p2Left: false, p2Right: false, p2Jump: false, p2Skill: false };
 window.addEventListener("keydown", e => {
   if (e.code === "Space" && !e.repeat) { e.preventDefault(); pressStart(); }
-  // P2 防守方按键
   if (mode === "duo") {
-    if (e.code === "KeyA" || e.code === "ArrowLeft") { e.preventDefault(); defKeys.left = true; }
-    if (e.code === "KeyD" || e.code === "ArrowRight") { e.preventDefault(); defKeys.right = true; }
-    if ((e.code === "KeyW" || e.code === "ArrowUp") && defender.onGround) { e.preventDefault(); defKeys.jump = true; }
-    if (e.code === "KeyE" && !e.repeat) { e.preventDefault(); defKeys.skill1 = true; }
-    if (e.code === "KeyQ" && !e.repeat) { e.preventDefault(); defKeys.skill2 = true; }
+    if (e.code === "KeyA") { e.preventDefault(); duoKeys.p1Left = true; }
+    if (e.code === "KeyD") { e.preventDefault(); duoKeys.p1Right = true; }
+    if (e.code === "KeyW" && !e.repeat) { e.preventDefault(); duoKeys.p1Shoot = true; duoShoot(); }
+    if (e.code === "ArrowLeft") { e.preventDefault(); duoKeys.p2Left = true; }
+    if (e.code === "ArrowRight") { e.preventDefault(); duoKeys.p2Right = true; }
+    if (e.code === "ArrowUp" && !e.repeat) { e.preventDefault(); duoKeys.p2Jump = true; }
+    if (e.code === "KeyE" && !e.repeat) { e.preventDefault(); duoKeys.p2Skill = true; useDefSkill(); }
+    if (e.code === "KeyQ" && !e.repeat) { e.preventDefault(); }
+    return;
   }
+  // 单人模式 P2按键(防守方键盘)
+  if (mode === "duo") return;
+  if (e.code === "KeyA" || e.code === "ArrowLeft") { e.preventDefault(); defKeys.left = true; }
+  if (e.code === "KeyD" || e.code === "ArrowRight") { e.preventDefault(); defKeys.right = true; }
+  if ((e.code === "KeyW" || e.code === "ArrowUp") && defender.onGround) { e.preventDefault(); defKeys.jump = true; }
+  if (e.code === "KeyE" && !e.repeat) { e.preventDefault(); defKeys.skill1 = true; }
+  if (e.code === "KeyQ" && !e.repeat) { e.preventDefault(); defKeys.skill2 = true; }
 });
 window.addEventListener("keyup", e => {
   if (e.code === "Space") { e.preventDefault(); pressEnd(); }
   if (mode === "duo") {
-    if (e.code === "KeyA" || e.code === "ArrowLeft") { defKeys.left = false; }
-    if (e.code === "KeyD" || e.code === "ArrowRight") { defKeys.right = false; }
-    if (e.code === "KeyW" || e.code === "ArrowUp") { defKeys.jump = false; }
+    if (e.code === "KeyA") { duoKeys.p1Left = false; }
+    if (e.code === "KeyD") { duoKeys.p1Right = false; }
+    if (e.code === "ArrowLeft") { duoKeys.p2Left = false; }
+    if (e.code === "ArrowRight") { duoKeys.p2Right = false; }
+    if (e.code === "ArrowUp") { duoKeys.p2Jump = false; }
+    return;
   }
+  if (e.code === "KeyA" || e.code === "ArrowLeft") { defKeys.left = false; }
+  if (e.code === "KeyD" || e.code === "ArrowRight") { defKeys.right = false; }
+  if (e.code === "KeyW" || e.code === "ArrowUp") { defKeys.jump = false; }
 });
 
 /* ================= P2 移动端虚拟按键 ================= */
@@ -832,7 +882,7 @@ function updateBall(dt) {
       announce("🛑 火锅盖帽！", "#ef5350");
       // 消耗一次性防守技能效果
       defSkills.wallActive = false; defSkills.shellActive = false;
-      defender.blockRadius = 0.6 * ppm;
+      defender.blockRadius = 0.24 * ppm;
       // 盖帽后球直接飞走，稍后 settleShot 会处理
     }
   }
@@ -859,14 +909,10 @@ function updateBall(dt) {
 /* ================= 防守方 (2P) ================= */
 function updateDefender(dt) {
   const defSpeed = 4.5 * ppm;
-  const jumpV = -6.5 * ppm;
   const g = gravPx();
-  if (defKeys.left) { defender.vx = -defSpeed; defender.facing = -1; }
-  else if (defKeys.right) { defender.vx = defSpeed; defender.facing = 1; }
+  if (duoKeys.p2Left) { defender.vx = -defSpeed; defender.facing = -1; }
+  else if (duoKeys.p2Right) { defender.vx = defSpeed; defender.facing = 1; }
   else { defender.vx *= 0.8; if (Math.abs(defender.vx) < 20) defender.vx = 0; }
-  if (defKeys.jump && defender.onGround) {
-    defender.vy = jumpV; defender.jumping = true; defender.onGround = false; defKeys.jump = false;
-  }
   if (!defender.onGround) defender.vy += g * dt;
   defender.x += defender.vx * dt;
   defender.y += defender.vy * dt;
@@ -874,9 +920,9 @@ function updateDefender(dt) {
     defender.y = GROUND; defender.vy = 0;
     defender.jumping = false; defender.onGround = true;
   }
-  const minX = Math.max(16, player.x + 0.5 * ppm);
-  const maxX = hoop.cx - 0.3 * ppm;
-  defender.x = Math.min(maxX, Math.max(minX, defender.x));
+  // 全场范围：防守方可在整个右侧半场移动
+  const halfW = W / 2;
+  defender.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(player.x - 0.3 * ppm, defender.x));
 }
 
 // 防守技能状态
@@ -896,7 +942,7 @@ function useDefSkill() {
   if (state !== "aim" && state !== "flying") return;
   if (defCharIdx === 0 && defSkills.wall > 0 && !defSkills.wallActive) {
     defSkills.wall--; defSkills.wallActive = true;
-    defender.blockRadius = 1.4 * ppm;
+    defender.blockRadius = 0.56 * ppm;
     announce("铜墙铁壁！🛡️", "#81c784"); sndScore();
   }
   if (defCharIdx === 1 && defSkills.charge > 0 && !defSkills.chargeActive) {
@@ -906,7 +952,7 @@ function useDefSkill() {
   }
   if (defCharIdx === 2 && defSkills.shell > 0 && !defSkills.shellActive) {
     defSkills.shell--; defSkills.shellActive = true;
-    defender.blockRadius = 1.8 * ppm;
+    defender.blockRadius = 0.72 * ppm;
     announce("龟壳防守！🐢", "#81c784"); sndTurtle();
   }
   updateDefSkillButtons();
@@ -929,18 +975,19 @@ function drawCourt() {
   const baseX = hoop.cx + 0.4 * ppm;                     // 底线（篮板投影处）
   const floorH = H - GROUND;
   const arcRY = Math.min(tpR * 0.24, floorH * 0.78);     // 地面透视压扁
+  const lHoopX = W - hoop.cx;                            // 左侧篮筐（镜像）
 
   ctx.save();
   ctx.beginPath(); ctx.rect(0, GROUND, W, floorH); ctx.clip();   // 只画在地板内
 
-  // 三秒区（禁区色块）
+  // 右侧半场：三秒区（禁区色块）
   ctx.fillStyle = "rgba(41, 98, 200, .38)";
   ctx.fillRect(ftX, GROUND, baseX - ftX, floorH);
   ctx.strokeStyle = "rgba(255,255,255,.9)";
   ctx.lineWidth = Math.max(2.5, 3.5 * S);
   ctx.strokeRect(ftX, GROUND + 1, baseX - ftX, floorH - 1);
 
-  // 罚球线 + 罚球弧
+  // 右侧罚球线 + 罚球弧
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = Math.max(3, 4.5 * S);
   ctx.beginPath(); ctx.moveTo(ftX, GROUND); ctx.lineTo(ftX, H); ctx.stroke();
@@ -948,12 +995,34 @@ function drawCourt() {
   ctx.ellipse(ftX, GROUND, 1.8 * ppm, Math.min(1.8 * ppm * 0.24, floorH * 0.5), 0, 0, Math.PI);
   ctx.stroke();
 
-  // 三分线（弧顶大圆弧）
+  // 右侧三分线（弧顶大圆弧）
   ctx.strokeStyle = "#ffd54a";
   ctx.lineWidth = Math.max(3.5, 5 * S);
   ctx.beginPath();
   ctx.ellipse(hoop.cx, GROUND, tpR, arcRY, 0, Math.PI * 0.5, Math.PI);
   ctx.stroke();
+
+  // 双人模式：左侧对称半场
+  if (mode === "duo") {
+    const lftX = lHoopX + 4.6 * ppm;   // 左侧罚球线（镜像）
+    const lBaseX = lHoopX - 0.4 * ppm; // 左侧底线
+    ctx.fillStyle = "rgba(41, 98, 200, .38)";
+    ctx.fillRect(lftX, GROUND, baseX - ftX, floorH);
+    ctx.strokeStyle = "rgba(255,255,255,.9)";
+    ctx.strokeRect(lftX, GROUND + 1, baseX - ftX, floorH - 1);
+    ctx.strokeStyle = "#fff";
+    ctx.beginPath(); ctx.moveTo(lftX, GROUND); ctx.lineTo(lftX, H); ctx.stroke();
+    ctx.strokeStyle = "#ffd54a";
+    ctx.beginPath();
+    ctx.ellipse(lHoopX, GROUND, tpR, arcRY, 0, 0, Math.PI * 0.5);
+    ctx.stroke();
+    // 中线
+    ctx.strokeStyle = "rgba(255,255,255,.5)";
+    ctx.lineWidth = Math.max(2, 3 * S);
+    ctx.setLineDash([8 * S, 8 * S]);
+    ctx.beginPath(); ctx.moveTo(W / 2, GROUND); ctx.lineTo(W / 2, H); ctx.stroke();
+    ctx.setLineDash([]);
+  }
   ctx.restore();
 
   // 线名标签（带底色胶囊，任何背景下都清晰）
@@ -970,6 +1039,9 @@ function drawCourt() {
   };
   courtLabel("罚球线", ftX, "#ffffff");
   courtLabel("三分线", hoop.cx - tpR, "#ffd54a");
+  if (mode === "duo") {
+    courtLabel("三分线", lHoopX + tpR, "#ffd54a");
+  }
   ctx.restore();
 }
 
@@ -988,6 +1060,27 @@ function drawHoop() {
     ctx.beginPath(); ctx.ellipse(hoop.cx, hoop.cy, hoop.rimR, 6 * S, 0, 0, Math.PI * 2); ctx.stroke();
   }
   ctx.restore();
+
+  // 双人模式：左侧篮筐（镜像）
+  if (mode === "duo") {
+    const lHoopX = W - hoop.cx;
+    const lPoleX = lHoopX - hoop.rimR - 4 * S - 60 * S;
+    ctx.fillStyle = "#2e7d32";
+    ctx.fillRect(lPoleX, hoop.boardTop, 16 * S, GROUND - hoop.boardTop);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,.4)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4;
+    if (imgHoop.complete && imgHoop.naturalWidth) {
+      ctx.scale(-1, 1);
+      ctx.drawImage(imgHoop, -lHoopX - hoop.imgW / 2, hoop.imgY, hoop.imgW, hoop.imgH);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    } else {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(lPoleX, hoop.boardTop, 8 * S, hoop.boardBottom - hoop.boardTop);
+      ctx.strokeStyle = "#e53935"; ctx.lineWidth = 4 * S;
+      ctx.beginPath(); ctx.ellipse(lHoopX, hoop.cy, hoop.rimR, 6 * S, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   if (ball.scored && (state === "flying" || state === "result" || state === "resultWait" || state === "dunkAnim")) {
     ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2 * S;
@@ -1236,10 +1329,18 @@ function loop(now) {
   if (tangAnim) { tangAnim.t += dt; if (tangAnim.t >= 1.3) tangAnim = null; }
   if (blockAnim) { blockAnim -= dt; if (blockAnim <= 0) blockAnim = null; }
 
-  // 防守方物理更新 (2P)
+  // 双人模式：P1移动（进攻者），P2移动+物理
   if (mode === "duo") {
+    const p1Speed = 4.0 * ppm;
+    if (duoKeys.p1Left) player.x -= p1Speed * dt;
+    if (duoKeys.p1Right) player.x += p1Speed * dt;
+    player.x = Math.max(16, Math.min(hoop.cx - 0.5 * ppm, player.x));
     updateDefender(dt);
-    if (defKeys.skill1) { defKeys.skill1 = false; useDefSkill(); }
+    if (duoKeys.p2Jump && defender.onGround) {
+      defender.vy = -6.5 * ppm; defender.jumping = true; defender.onGround = false; duoKeys.p2Jump = false;
+    }
+    // 2P模式不蓄力，直接aim状态等待W键
+    if (state === "charging") state = "aim";
   }
 
   if (state === "charging") {
@@ -1404,7 +1505,7 @@ startBtn.addEventListener("click", () => {
                           : { greed: 0, elbow: 0, second: 0, stepback: 1, turtle: 1 };
   defSkills = { wall: defCharIdx === 0 ? 1 : 0, charge: defCharIdx === 1 ? 1 : 0, shell: defCharIdx === 2 ? 1 : 0,
                 wallActive: false, chargeActive: false, shellActive: false };
-  defender.blockRadius = 0.6 * ppm;
+  defender.blockRadius = 0.24 * ppm;
   greedArmed = false;
   secondChanceArmed = false;
   stepbackArmed = false;
