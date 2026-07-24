@@ -506,8 +506,8 @@ const nextBtn = document.getElementById("nextBtn");
 const skillBar = document.getElementById("skillBar");
 const skill1Btn = document.getElementById("skill1");
 const skill2Btn = document.getElementById("skill2");
-skill1Btn.textContent = ""; skill2Btn.textContent = "";   // 硬清除默认内容
-let skillBarVisible = false;
+skillBar.style.display = "none"; skillBarVisible = false;  // 确保菜单隐藏
+skill1Btn.textContent = ""; skill2Btn.textContent = "";
 
 function newShot() {
   shotNum++;
@@ -1762,6 +1762,7 @@ document.getElementById("lbClearBtn").addEventListener("click", () => {
 /* ================= 启动 ================= */
 resize();
 imgHoop.onload = layoutHoop;
+clearSkillBtns();                       // 最终保障：技能条隐藏无文字
 requestAnimationFrame(loop);
 })();
 </script>
