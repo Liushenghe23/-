@@ -1282,7 +1282,6 @@ function drawDefender() {
     ctx.fillStyle = "rgba(66,165,245,.25)"; ctx.fill();
     ctx.strokeStyle = "rgba(66,165,245,.7)"; ctx.lineWidth = 2.5 * S; ctx.stroke();
   }
-  ctx.fillText("🛡️", x, y - ph - 12 * S);
   ctx.restore();
   // P2进攻时手上持球
   if (mode === "duo" && currentShooter === 2 && (state === "aim" || state === "charging" || state === "skillAnim")) {
