@@ -469,8 +469,17 @@ let currentShooter = 1;       // 当前谁投篮 (1=P1, 2=P2)
 let p1Shots = 0, p2Shots = 0; // 各已出手次数
 let p1Score = 0, p2Score = 0; // 双方得分
 
-// 技能
+// 技能（skills=P1/单人，skillsP2=双人P2）
 let skills = { elbow: 0, second: 0, stepback: 0, turtle: 0 };
+let skillsP2 = { elbow: 0, second: 0, stepback: 0, turtle: 0 };
+function skillsFor(ch) {
+  return ch === 1 ? { elbow: 1, second: 1, stepback: 0, turtle: 0 }
+       : ch === 2 ? { elbow: 0, second: 0, stepback: 1, turtle: 1 }
+                  : { elbow: 0, second: 0, stepback: 0, turtle: 0 };
+}
+// 当前进攻方的角色和技能（双人模式按回合取）
+function activeChar()  { return (mode === "duo" && currentShooter === 2) ? defCharIdx : charIdx; }
+function activeSkills(){ return (mode === "duo" && currentShooter === 2) ? skillsP2 : skills; }
 let secondChanceArmed = false;
 let stepbackArmed = false;
 let turtleArmed = false;
@@ -491,7 +500,8 @@ function chestPos() {
   return { x: player.x + 0.22 * ppm, y: player.y - 0.95 * ppm };
 }
 function isCloseRange() {
-  return (hoop.cx - handPos().x) < CLOSE_M * ppm;
+  const p = (mode === "duo" && currentShooter === 2) ? defender : player;
+  return (hoop.cx - p.x) < CLOSE_M * ppm;
 }
 
 const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 13 * S, dunk: false, beyond3: false,
@@ -551,14 +561,15 @@ function newShot() {
   if (mode === "duo") defenderInit();
 }
 function duoNextShot() {
+  // 攻守互换：角色不变(形象/按键固定)，位置互换
   currentShooter = currentShooter === 1 ? 2 : 1;
-  const tmpChar = charIdx; charIdx = defCharIdx; defCharIdx = tmpChar;
-  // P1始终站左侧，P2始终站右侧（各攻各的筐）
-  player.x = W * 0.12 + 0.8 * ppm;
-  defender.x = hoop.cx - 3 * ppm;
-  player.y = GROUND; defender.y = GROUND;
-  defender.vy = 0; defender.vx = 0;
-  defender.jumping = false; defender.onGround = true;
+  const atk = currentShooter === 1 ? player : defender;
+  const def = currentShooter === 1 ? defender : player;
+  // 进攻方站左侧远点，防守方站篮筐前
+  atk.x = Math.max(16, hoop.cx - 6.0 * ppm); atk.y = GROUND;
+  def.x = hoop.cx - 1.8 * ppm; def.y = GROUND;
+  player.vy = 0; player.jumping = false;
+  defender.vy = 0; defender.jumping = false; defender.onGround = true;
   resetBall();
   power = 0; chargeT = 0;
   skillAnim = null; blockAnim = null;
@@ -570,16 +581,17 @@ function duoNextShot() {
 }
 
 function defenderInit() {
-  player.x = W * 0.12 + 0.8 * ppm;   // P1站左侧
-  defender.x = hoop.cx - 3 * ppm;     // P2站右侧
+  // 开局：P1进攻(左侧远点)，P2防守(篮筐前)
+  player.x = Math.max(16, hoop.cx - 6.0 * ppm);
+  defender.x = hoop.cx - 1.8 * ppm;
   player.y = GROUND; defender.y = GROUND;
+  player.vy = 0; player.jumping = false;
   defender.vy = 0; defender.vx = 0;
   defender.jumping = false; defender.onGround = true;
   defender.blockRadius = 0.38 * ppm;
   p1Shots = 0; p2Shots = 0; p1Score = 0; p2Score = 0;
   currentShooter = 1;
-  const cNames = ["豆豆","王泽","田鹏"];
-  document.getElementById("defName").textContent = (currentShooter===1?"▶P1 进攻":"P1 防守") + " | " + (currentShooter===2?"▶P2 进攻":"P2 防守");
+  document.getElementById("defName").textContent = "▶P1 进攻 | P2 防守";
   updateDefSkillButtons();
 }
 
@@ -587,7 +599,7 @@ function resetBall() {
   const h = chestPos();
   ball.x = h.x; ball.y = h.y; ball.vx = 0; ball.vy = 0;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.beyond3 = ball.blocked = false;
-  ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
+  ball.bounces = 0; ball.r = 0.12 * ppm; ball.releaseX = 0;
 }
 
 // 2P概率投篮（统一攻右筐）
@@ -595,18 +607,20 @@ function duoShoot() {
   if (state !== "aim" || mode !== "duo") return;
   const isP2 = currentShooter === 2;
   const shooter = isP2 ? defender : player;
+  const aChar = isP2 ? defCharIdx : charIdx;   // 进攻方角色（不交换charIdx）
   const distM = (hoop.cx - shooter.x) / ppm;
   let baseRate;
   if (distM < 2.3) baseRate = 1.0;
   else if (distM < 6.6) baseRate = 0.65;
   else baseRate = 0.39;
   let bonus = 0;
-  if (charIdx === 0) bonus = 0.20;
-  else if (charIdx === 1 && distM < 6.6) bonus = 0.10;
-  else if (charIdx === 2 && distM >= 6.6) bonus = 0.10;
+  if (aChar === 0) bonus = 0.20;
+  else if (aChar === 1 && distM < 6.6) bonus = 0.10;
+  else if (aChar === 2 && distM >= 6.6) bonus = 0.10;
   const hitRate = Math.min(1, baseRate + bonus);
   const hit = Math.random() < hitRate;
   ball.beyond3 = distM >= 6.6;
+  ball.releaseX = shooter.x;                    // 记录出手点，防止贴脸盖帽
 
   ball.x = shooter.x + (isP2 ? -0.3 : 0.3) * ppm; ball.y = shooter.y - 1.2 * ppm;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
@@ -754,69 +768,72 @@ function endGame() {
 /* ================= 技能 ================= */
 function updateSkillButtons() {
   if (state === "menu" || state === "gameover") { clearSkillBtns(); return; }
-  if (charIdx === 0) {
+  const ch = activeChar(), sk = activeSkills();
+  if (ch === 0) {
     // 豆豆：被动技能（无尽贪婪 40%概率暴扣）
     skill1Btn.style.display = "none";
     skill2Btn.style.display = "none";
-  } else if (charIdx === 1) {
+  } else if (ch === 1) {
     // 王泽：肘击 + 肥油二次
     skill1Btn.style.display = "";
     skill2Btn.style.display = "";
-    skill1Btn.disabled = skills.elbow <= 0 || state !== "aim" || isCloseRange();
-    skill2Btn.disabled = skills.second <= 0 || state !== "aim" || secondChanceArmed;
-    skill1Btn.innerHTML = `💥 王泽肘击<span class="cnt">剩 ${skills.elbow} 次</span>`;
+    skill1Btn.disabled = sk.elbow <= 0 || state !== "aim" || isCloseRange();
+    skill2Btn.disabled = sk.second <= 0 || state !== "aim" || secondChanceArmed;
+    skill1Btn.innerHTML = `💥 王泽肘击<span class="cnt">剩 ${sk.elbow} 次</span>`;
     skill2Btn.innerHTML = secondChanceArmed
       ? `🧈 肥油二次<span class="cnt">已启动</span>`
-      : `🧈 肥油二次<span class="cnt">剩 ${skills.second} 次</span>`;
+      : `🧈 肥油二次<span class="cnt">剩 ${sk.second} 次</span>`;
   } else {
     // 田鹏：后撤三分 + 龟
     skill1Btn.style.display = "";
     skill2Btn.style.display = "";
-    skill1Btn.disabled = skills.stepback <= 0 || state !== "aim" || stepbackArmed;
-    skill2Btn.disabled = skills.turtle <= 0 || state !== "aim" || turtleArmed;
+    skill1Btn.disabled = sk.stepback <= 0 || state !== "aim" || stepbackArmed;
+    skill2Btn.disabled = sk.turtle <= 0 || state !== "aim" || turtleArmed;
     skill1Btn.innerHTML = stepbackArmed
       ? `🏀 后撤三分<span class="cnt">已启动</span>`
-      : `🏀 后撤三分<span class="cnt">剩 ${skills.stepback} 次</span>`;
+      : `🏀 后撤三分<span class="cnt">剩 ${sk.stepback} 次</span>`;
     skill2Btn.innerHTML = turtleArmed
       ? `🐢 龟<span class="cnt">已启动</span>`
-      : `🐢 龟<span class="cnt">剩 ${skills.turtle} 次</span>`;
+      : `🐢 龟<span class="cnt">剩 ${sk.turtle} 次</span>`;
   }
 }
 
-// 技能1：豆豆=无尽贪婪 / 王泽=肘击 / 田鹏=后撤三分
+// 技能1：王泽=肘击 / 田鹏=后撤三分（作用于当前进攻方）
 skill1Btn.addEventListener("click", () => {
   if (state !== "aim") return;
-  if (charIdx === 0) return;
-  if (charIdx === 1) {
-    // 💥 王泽肘击：前进3米，遇到球员将其向前推2米
-    if (skills.elbow <= 0) return;
-    skills.elbow--;
-    const advanceX = player.x + 3.0 * ppm;
-    const targetX = Math.min(advanceX, hoop.cx - 0.3 * ppm);
-    // 如果防守者在前进路径上，将其向前推2米
-    if (mode === "duo" && defender.x > player.x && defender.x < targetX + 1.5 * ppm) {
-      defender.x += 2.0 * ppm;
+  const ch = activeChar(), sk = activeSkills();
+  if (ch === 0) return;
+  // 当前进攻方对象和防守方对象
+  const atkObj = (mode === "duo" && currentShooter === 2) ? defender : player;
+  const defObj = atkObj === player ? defender : player;
+  if (ch === 1) {
+    // 💥 王泽肘击：前进3米，遇到防守者将其向前推2米
+    if (sk.elbow <= 0) return;
+    sk.elbow--;
+    const targetX = Math.min(atkObj.x + 3.0 * ppm, hoop.cx - 0.3 * ppm);
+    if (mode === "duo" && defObj.x > atkObj.x && defObj.x < targetX + 1.5 * ppm) {
+      defObj.x += 2.0 * ppm;
       announce("王泽肘击！撞飞防守！💥", "#ff8a65");
     } else {
       announce("王泽肘击！💥", "#ff8a65");
     }
-    skillAnim = { fromX: player.x, toX: targetX, t: 0, dur: 0.35 };
+    skillAnim = { fromX: atkObj.x, toX: targetX, t: 0, dur: 0.35, obj: atkObj };
     state = "skillAnim";
     sndElbow();
   } else {
     // 🏀 后撤三分：双人限三分线内1米(5.6~6.6m)，单人全距离可用
-    if (skills.stepback <= 0 || stepbackArmed) return;
+    if (sk.stepback <= 0 || stepbackArmed) return;
     if (mode === "duo") {
-      const distM = (hoop.cx - player.x) / ppm;
+      const distM = (hoop.cx - atkObj.x) / ppm;
       if (distM < 5.6 || distM > 6.6) {
         announce("离三分线太远，无法后撤！⚠️", "#ff8a65");
         return;
       }
     }
-    skills.stepback--;
+    sk.stepback--;
     stepbackArmed = true;
     const threeX = hoop.cx - 6.6 * ppm - 0.32 * ppm;
-    skillAnim = { fromX: player.x, toX: threeX, t: 0, dur: 0.35 };
+    skillAnim = { fromX: atkObj.x, toX: threeX, t: 0, dur: 0.35, obj: atkObj };
     state = "skillAnim";
     announce("后撤三分！超准出手！🏀", "#4fc3f7");
     sndStep();
@@ -827,17 +844,18 @@ skill1Btn.addEventListener("click", () => {
 // 技能2：王泽=肥油二次 / 田鹏=龟
 skill2Btn.addEventListener("click", () => {
   if (state !== "aim") return;
-  if (charIdx === 1) {
+  const ch = activeChar(), sk = activeSkills();
+  if (ch === 1) {
     // 🧈 肥油二次：本球投丢可抢板再投
-    if (skills.second <= 0 || secondChanceArmed) return;
-    skills.second--;
+    if (sk.second <= 0 || secondChanceArmed) return;
+    sk.second--;
     secondChanceArmed = true;
     announce("肥油二次已启动！🧈", "#ffd54a");
     sndScore();
-  } else if (charIdx === 2) {
+  } else if (ch === 2) {
     // 🐢 龟：无论进否，额外获得罚球线出手
-    if (skills.turtle <= 0 || turtleArmed) return;
-    skills.turtle--;
+    if (sk.turtle <= 0 || turtleArmed) return;
+    sk.turtle--;
     turtleArmed = true;
     announce("龟！罚球线复活！🐢", "#81c784");
     sndTurtle();
@@ -970,8 +988,9 @@ function updateBall(dt) {
     }
   }
 
-  // 🛑 盖帽检测：P1攻右筐→P2防右筐, P2攻左筐→P1防左筐
-  if (mode === "duo" && !ball.scored && state === "flying" && ball.vy < 0) {
+  // 🛑 盖帽检测：球飞出1米后才可盖（防贴脸），按回合识别防守方
+  if (mode === "duo" && !ball.scored && state === "flying" && ball.vy < 0 &&
+      Math.abs(ball.x - ball.releaseX) > 1.0 * ppm) {
     const def = currentShooter === 1 ? defender : player;
     const defHandY = def.y - 1.5 * ppm;
     const dx = ball.x - def.x;
@@ -1179,7 +1198,7 @@ function drawPlayer() {
   const cut = cutouts[charIdx];
   const img = imgChars[charIdx];
   // 双人模式方向翻转：P1持球朝右（攻右筐），P2持球朝左（防守）
-  const p1FacingRight = mode !== "duo" || currentShooter === 1;
+  const p1FacingRight = true;   // 篮筐恒在右侧，始终朝右
 
   ctx.save();
   ctx.fillStyle = "rgba(0,0,0,.25)";
@@ -1231,7 +1250,7 @@ function drawDefender() {
   const cut = cutouts[defCharIdx];
   const img = imgChars[defCharIdx];
   // 方向翻转：P2持球时朝左（攻左筐），P1持球时朝右（防守）
-  const p2FacingRight = currentShooter === 1;
+  const p2FacingRight = true;   // 篮筐恒在右侧，始终朝右
   ctx.save();
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath(); ctx.ellipse(x + 6 * S, y + 3 * S, 32 * S, 6 * S, 0, 0, Math.PI * 2); ctx.fill();
@@ -1430,10 +1449,9 @@ function loop(now) {
     if (duoKeys.p1Right) player.x += spd * dt;
     if (duoKeys.p2Left) defender.x -= spd * dt;
     if (duoKeys.p2Right) defender.x += spd * dt;
-    // 各守半场：P1左半场(x≤W/2)，P2右半场(x≥W/2)
-    const mid = W / 2;
-    player.x = Math.max(16, Math.min(mid - 0.5 * ppm, player.x));
-    defender.x = Math.max(mid + 0.5 * ppm, Math.min(hoop.cx - 0.1 * ppm, defender.x));
+    // 全场自由移动（限场地内）
+    player.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, player.x));
+    defender.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, defender.x));
     // 双方跳跃物理
     if (player.vy !== undefined) {
       player.vy += gravPx() * dt; player.y += player.vy * dt;
@@ -1455,7 +1473,8 @@ function loop(now) {
     skillAnim.t += dt;
     const k = Math.min(1, skillAnim.t / skillAnim.dur);
     const e = 1 - (1 - k) * (1 - k);
-    player.x = skillAnim.fromX + (skillAnim.toX - skillAnim.fromX) * e;
+    const animObj = skillAnim.obj || player;
+    animObj.x = skillAnim.fromX + (skillAnim.toX - skillAnim.fromX) * e;
     const c = chestPos();
     ball.x = c.x; ball.y = c.y;
     if (k >= 1) { state = "aim"; updateSkillButtons(); }
@@ -1612,9 +1631,8 @@ startBtn.addEventListener("click", () => {
   }
   document.getElementById("menu").classList.add("hidden");
   score = 0; shotNum = 0; shotHistory = []; blockCount = 0;
-  skills = charIdx === 0 ? { elbow: 0, second: 0, stepback: 0, turtle: 0 }
-          : charIdx === 1 ? { elbow: 1, second: 1, stepback: 0, turtle: 0 }
-                          : { elbow: 0, second: 0, stepback: 1, turtle: 1 };
+  skills = skillsFor(charIdx);
+  skillsP2 = skillsFor(defCharIdx);
   defSkills = { wall: defCharIdx === 0 ? 1 : 0, charge: defCharIdx === 1 ? 1 : 0, shell: defCharIdx === 2 ? 1 : 0,
                 wallActive: false, chargeActive: false, shellActive: false };
   defender.blockRadius = 0.38 * ppm;
