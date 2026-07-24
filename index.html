@@ -211,9 +211,9 @@
 </div>
 
 <div id="defBar">
-  <span class="def-name">🛡️ <span id="defName">防守方</span></span>
+  <span class="def-name"><span id="defName">P1</span></span>
   <span class="def-stat">盖帽: <span id="defBlocks">0</span></span>
-  <span class="def-keyhint">P1 ←→移动 W投篮 ｜ P2 ←→移动 ↑投篮</span>
+  <span class="def-keyhint">P1:A/D移动 W出手 ｜ P2:←→移动 ↑出手</span>
 </div>
 
 <!-- 移动端 P2 虚拟按键 -->
@@ -565,7 +565,8 @@ function duoNextShot() {
   state = "aim";
   updateSkillButtons();
   updateDefSkillButtons();
-  document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
+  const cN = ["豆豆","王泽","田鹏"];
+  document.getElementById("defName").textContent = (currentShooter===1?"▶P1 进攻":"P1 防守") + " | " + (currentShooter===2?"▶P2 进攻":"P2 防守");
 }
 
 function defenderInit() {
@@ -577,7 +578,8 @@ function defenderInit() {
   defender.blockRadius = 0.38 * ppm;
   p1Shots = 0; p2Shots = 0; p1Score = 0; p2Score = 0;
   currentShooter = 1;
-  document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
+  const cNames = ["豆豆","王泽","田鹏"];
+  document.getElementById("defName").textContent = (currentShooter===1?"▶P1 进攻":"P1 防守") + " | " + (currentShooter===2?"▶P2 进攻":"P2 防守");
   updateDefSkillButtons();
 }
 
@@ -606,16 +608,19 @@ function duoShoot() {
   const hit = Math.random() < hitRate;
   ball.beyond3 = distM >= 6.6;
 
-  ball.x = shooter.x + 0.3 * ppm; ball.y = shooter.y - 1.2 * ppm;
+  ball.x = shooter.x + (isP2 ? -0.3 : 0.3) * ppm; ball.y = shooter.y - 1.2 * ppm;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
   ball.bounces = 0;
 
   const d = hoop.cx - shooter.x;
-  const idealV = vIdealOf(Math.max(1, d / ppm) * ppm);
+  const absD = Math.abs(d);
+  const dir = d > 0 ? 1 : -1;
+  const baseAngle = dir > 0 ? ANGLE : Math.PI - ANGLE;
+  const idealV = vIdealOf(Math.max(1, absD / ppm) * ppm);
   if (hit) {
     const acc = 0.96 + Math.random() * 0.04;
     const av = (Math.random() - 0.5) * 0.025;
-    const a = ANGLE + av;
+    const a = baseAngle + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   } else {
@@ -624,7 +629,7 @@ function duoShoot() {
     if (missType < 0.5) { acc = 0.98 + Math.random() * 0.02; av = (Math.random() - 0.5) * 0.005; }
     else if (missType < 0.85) { acc = 1.01 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.005; }
     else { acc = 0.98 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.04; }
-    const a = ANGLE + av;
+    const a = baseAngle + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   }
