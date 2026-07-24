@@ -1241,7 +1241,8 @@ function drawPlayer() {
   }
   ctx.restore();
 
-  if (state === "aim" || state === "charging" || state === "skillAnim") {
+  // 球在P1手上（仅P1进攻时显示）
+  if ((state === "aim" || state === "charging" || state === "skillAnim") && (mode !== "duo" || currentShooter === 1)) {
     const c = chestPos(), h = handPos();
     const t = state === "charging" ? Math.min(1, chargeT * 4) : 0;
     drawBall(c.x + (h.x - c.x) * t, c.y + (h.y - c.y) * t, 0);
@@ -1287,6 +1288,10 @@ function drawDefender() {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("🛡️", x, y - ph - 12 * S);
   ctx.restore();
+  // P2进攻时手上持球
+  if (mode === "duo" && currentShooter === 2 && (state === "aim" || state === "charging" || state === "skillAnim")) {
+    drawBall(x + 0.3 * ppm, y - 1.2 * ppm, 0);
+  }
 }
 
 function drawBall(bx, by, spin) {
