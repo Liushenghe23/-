@@ -187,8 +187,8 @@
 <button class="btn" id="nextBtn">下一球 ▶</button>
 
 <div id="skillBar">
-  <button class="skill-btn" id="skill1">💥 王泽肘击<span class="cnt">剩 1 次</span></button>
-  <button class="skill-btn" id="skill2">🧈 肥油二次<span class="cnt">剩 1 次</span></button>
+  <button class="skill-btn" id="skill1"></button>
+  <button class="skill-btn" id="skill2"></button>
 </div>
 
 <div id="defBar">
@@ -210,7 +210,7 @@
 <!-- 开始 / 选人界面 -->
 <div id="menu" class="overlay">
   <div style="position:absolute;top:20px;right:16px;display:flex;align-items:center;gap:8px;z-index:25">
-    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.23</span>
+    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.24</span>
     <button class="lb-btn" id="lbOpenBtn" style="position:static">🏆 排行榜</button>
   </div>
   <div class="title">🏀 投篮挑战赛</div>
@@ -294,8 +294,8 @@
 "use strict";
 
 /* ================= 版本 ================= */
-const APP_VER = { major: 1, minor: 23 };
-const VER_MAJOR = 1; let VER_MINOR = 23;
+const APP_VER = { major: 1, minor: 24 };
+const VER_MAJOR = 1; let VER_MINOR = 24;
 function bumpVer() { VER_MINOR++; document.getElementById("verText").textContent = "v" + VER_MAJOR + "." + VER_MINOR; }
 
 /* ================= 基础 ================= */
@@ -817,12 +817,14 @@ skill1Btn.addEventListener("click", () => {
     state = "skillAnim";
     sndElbow();
   } else {
-    // 🏀 后撤三分：只能在三分线内1米范围内使用(5.6~6.6m)
+    // 🏀 后撤三分：双人限三分线内1米(5.6~6.6m)，单人全距离可用
     if (skills.stepback <= 0 || stepbackArmed) return;
-    const distM = (hoop.cx - player.x) / ppm;
-    if (distM < 5.6 || distM > 6.6) {
-      announce("离三分线太远，无法后撤！⚠️", "#ff8a65");
-      return;
+    if (mode === "duo") {
+      const distM = (hoop.cx - player.x) / ppm;
+      if (distM < 5.6 || distM > 6.6) {
+        announce("离三分线太远，无法后撤！⚠️", "#ff8a65");
+        return;
+      }
     }
     skills.stepback--;
     stepbackArmed = true;
@@ -1117,9 +1119,9 @@ function drawCourt() {
   ctx.ellipse(ftX, GROUND, 1.8 * ppm, Math.min(1.8 * ppm * 0.24, floorH * 0.5), 0, 0, Math.PI);
   ctx.stroke();
 
-  // 右侧三分线（弧顶大圆弧，限定在右半场）
+  // 右侧三分线（弧顶大圆弧）
   ctx.save();
-  ctx.beginPath(); ctx.rect(W / 2, GROUND, W / 2, floorH); ctx.clip();
+  if (mode === "duo") { ctx.beginPath(); ctx.rect(W / 2, GROUND, W / 2, floorH); ctx.clip(); }
   ctx.strokeStyle = "#ffd54a";
   ctx.lineWidth = Math.max(3.5, 5 * S);
   ctx.beginPath();
