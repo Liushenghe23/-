@@ -596,8 +596,14 @@ function defenderInit() {
 }
 
 function resetBall() {
-  const h = chestPos();
-  ball.x = h.x; ball.y = h.y; ball.vx = 0; ball.vy = 0;
+  // 双人模式：球放在当前进攻方手上
+  if (mode === "duo" && currentShooter === 2) {
+    ball.x = defender.x + 0.3 * ppm; ball.y = defender.y - 1.2 * ppm;
+  } else {
+    const h = chestPos();
+    ball.x = h.x; ball.y = h.y;
+  }
+  ball.vx = 0; ball.vy = 0;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.beyond3 = ball.blocked = false;
   ball.bounces = 0; ball.r = 0.12 * ppm; ball.releaseX = 0;
 }
@@ -1269,10 +1275,12 @@ function drawDefender() {
     ctx.fillStyle = "#455a64";
     ctx.beginPath(); ctx.roundRect(x - 20 * S, y - ph, 40 * S, ph, 16 * S); ctx.fill();
   }
-  // 防守范围
-  ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
-  ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
+  // 防守范围（P2进攻时不显示）
+  if (currentShooter === 1 || mode !== "duo") {
+    ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
+    ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
+  }
   ctx.fillStyle = "rgba(0,0,0,.5)";
   ctx.beginPath(); ctx.roundRect(x - 24 * S, y - ph - 20 * S, 48 * S, 16 * S, 8); ctx.fill();
   ctx.fillStyle = "#81c784"; ctx.font = `700 ${11 * S + 2}px sans-serif`;
