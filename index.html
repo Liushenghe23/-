@@ -506,7 +506,8 @@ const nextBtn = document.getElementById("nextBtn");
 const skillBar = document.getElementById("skillBar");
 const skill1Btn = document.getElementById("skill1");
 const skill2Btn = document.getElementById("skill2");
-skillBar.style.display = "none"; skillBarVisible = false;  // 确保菜单隐藏
+let skillBarVisible = false;                               // 技能条可见性标志
+skillBar.style.display = "none";                           // 确保菜单隐藏
 skill1Btn.textContent = ""; skill2Btn.textContent = "";
 
 function newShot() {
