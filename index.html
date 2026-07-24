@@ -239,7 +239,7 @@
 <!-- 开始 / 选人界面 -->
 <div id="menu" class="overlay">
   <div style="position:absolute;top:20px;right:16px;display:flex;align-items:center;gap:8px;z-index:25">
-    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.44</span>
+    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.45</span>
     <button class="lb-btn" id="lbOpenBtn" style="position:static">🏆 排行榜</button>
   </div>
   <div class="title">🏀 投篮挑战赛</div>
@@ -323,8 +323,8 @@
 "use strict";
 
 /* ================= 版本 ================= */
-const APP_VER = { major: 1, minor: 44 };
-const VER_MAJOR = 1; let VER_MINOR = 44;
+const APP_VER = { major: 1, minor: 45 };
+const VER_MAJOR = 1; let VER_MINOR = 45;
 function bumpVer() { VER_MINOR++; document.getElementById("verText").textContent = "v" + VER_MAJOR + "." + VER_MINOR; }
 
 /* ================= 基础 ================= */
@@ -417,12 +417,12 @@ function layoutHoop() {
     imgX: cx - RIM_CX_F * imgW,
     imgY: cy - RIM_CY_F * imgH,
     boardX: cx + rimR + 4 * S,
-    boardTop: cy - 1.44 * ppm,
+    boardTop: cy - 1.45 * ppm,
     boardBottom: cy + 4 * S,
   };
   // 蓄力速度范围：覆盖最近(2.5m)到最远(7.3m)的理想速度
   V0 = 0.5 * vIdealOf(2.5 * ppm);
-  V1 = 1.44 * vIdealOf(7.3 * ppm);
+  V1 = 1.45 * vIdealOf(7.3 * ppm);
 }
 
 // 某距离下正好空心入网的理想初速度
