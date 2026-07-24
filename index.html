@@ -209,7 +209,10 @@
 
 <!-- 开始 / 选人界面 -->
 <div id="menu" class="overlay">
-  <button class="lb-btn" id="lbOpenBtn">🏆 排行榜</button>
+  <div style="position:absolute;top:20px;right:16px;display:flex;align-items:center;gap:8px;z-index:25">
+    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.23</span>
+    <button class="lb-btn" id="lbOpenBtn" style="position:static">🏆 排行榜</button>
+  </div>
   <div class="title">🏀 投篮挑战赛</div>
   <div class="mode-select">
     <button class="mode-btn active" id="modeSingle">🏀 单人</button>
@@ -289,6 +292,11 @@
 <script>
 (() => {
 "use strict";
+
+/* ================= 版本 ================= */
+const APP_VER = { major: 1, minor: 23 };
+const VER_MAJOR = 1; let VER_MINOR = 23;
+function bumpVer() { VER_MINOR++; document.getElementById("verText").textContent = "v" + VER_MAJOR + "." + VER_MINOR; }
 
 /* ================= 基础 ================= */
 const canvas = document.getElementById("game");
