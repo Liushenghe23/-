@@ -465,9 +465,11 @@ let defKeys = { left: false, right: false, jump: false, skill1: false, skill2: f
 let blockAnim = null;   // 盖帽特效计时器
 
 // 双人模式：回合制轮流进攻（每人5球）
-let currentShooter = 1;       // 当前谁投篮 (1=P1, 2=P2)
+let currentShooter = 1;       // 当前谁投篮 (1=P1攻右筐, 2=P2攻左筐)
 let p1Shots = 0, p2Shots = 0; // 各已出手次数
 let p1Score = 0, p2Score = 0; // 双方得分
+let leftHoop = null;          // P2攻击的左筐
+let targetHoop = null;        // 当前投篮目标筐
 
 // 技能
 let skills = { elbow: 0, second: 0, stepback: 0, turtle: 0 };
@@ -551,18 +553,11 @@ function newShot() {
   if (mode === "duo") defenderInit();
 }
 function duoNextShot() {
-  // 交换攻守
   currentShooter = currentShooter === 1 ? 2 : 1;
-  // 交换角色索引
   const tmpChar = charIdx; charIdx = defCharIdx; defCharIdx = tmpChar;
-  // 进攻方站左侧、防守方站右侧（近篮筐）
-  let p1x = W * 0.12 + 0.8 * ppm;   // 默认P1进攻
-  let p2x = hoop.cx - 3 * ppm;       // 默认P2防守
-  if (currentShooter === 2) {         // P2进攻时互换位置
-    p1x = hoop.cx - 3 * ppm;          // P1防守
-    p2x = W * 0.12 + 0.8 * ppm;       // P2进攻
-  }
-  player.x = p1x; defender.x = p2x;
+  // P1始终站左侧，P2始终站右侧（各攻各的筐）
+  player.x = W * 0.12 + 0.8 * ppm;
+  defender.x = hoop.cx - 3 * ppm;
   player.y = GROUND; defender.y = GROUND;
   defender.vy = 0; defender.vx = 0;
   defender.jumping = false; defender.onGround = true;
@@ -575,15 +570,22 @@ function duoNextShot() {
   document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
 }
 
+function initDuoHoops() {
+  const lX = W * 0.12;
+  leftHoop = {
+    cx: lX, cy: hoop.cy, rimR: hoop.rimR,
+    boardX: lX - hoop.rimR - 4 * S - 60 * S,
+    boardTop: hoop.boardTop, boardBottom: hoop.boardBottom,
+  };
+}
+
 function defenderInit() {
-  // 进攻方在左侧、防守方在右侧（统一攻右筐）
-  player.x = W * 0.12 + 0.8 * ppm;
-  defender.x = hoop.cx - 3 * ppm;
-  player.y = GROUND;
-  defender.y = GROUND;
+  initDuoHoops();
+  player.x = W * 0.12 + 0.8 * ppm;   // P1站左侧
+  defender.x = hoop.cx - 3 * ppm;     // P2站右侧
+  player.y = GROUND; defender.y = GROUND;
   defender.vy = 0; defender.vx = 0;
   defender.jumping = false; defender.onGround = true;
-  defender.skillActive = false;
   defender.blockRadius = 0.38 * ppm;
   p1Shots = 0; p2Shots = 0; p1Score = 0; p2Score = 0;
   currentShooter = 1;
@@ -598,54 +600,52 @@ function resetBall() {
   ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
 }
 
-// 2P概率投篮（无蓄力，谁投取决于currentShooter）
+// 2P概率投篮：P1攻右筐、P2攻左筐
 function duoShoot() {
   if (state !== "aim" || mode !== "duo") return;
   const isP2 = currentShooter === 2;
+  targetHoop = isP2 ? leftHoop : hoop;    // P1→右筐, P2→左筐
   const shooter = isP2 ? defender : player;
-  const distM = Math.abs(hoop.cx - shooter.x) / ppm;
-  // 角色命中率加成
+  const distM = Math.abs(targetHoop.cx - shooter.x) / ppm;
   let baseRate;
   if (distM < 2.3) baseRate = 1.0;
   else if (distM < 6.6) baseRate = 0.65;
   else baseRate = 0.39;
   let bonus = 0;
-  if (charIdx === 0) bonus = 0.20;        // 豆豆：+20%全位置
-  else if (charIdx === 1 && distM < 6.6) bonus = 0.10;  // 王泽：三分线内+10%
-  else if (charIdx === 2 && distM >= 6.6) bonus = 0.10; // 田鹏：三分线外+10%
+  if (charIdx === 0) bonus = 0.20;
+  else if (charIdx === 1 && distM < 6.6) bonus = 0.10;
+  else if (charIdx === 2 && distM >= 6.6) bonus = 0.10;
   const hitRate = Math.min(1, baseRate + bonus);
   const hit = Math.random() < hitRate;
   ball.beyond3 = distM >= 6.6;
 
-  // 真实投篮抛物线
-  ball.x = shooter.x + 0.3 * ppm; ball.y = shooter.y - 1.2 * ppm;
+  ball.x = shooter.x + 0.3 * (isP2 ? -1 : 1) * ppm;
+  ball.y = shooter.y - 1.2 * ppm;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
   ball.bounces = 0;
 
-  const d = hoop.cx - shooter.x;
-  const idealV = vIdealOf(Math.max(1, d / ppm) * ppm);
+  const d = targetHoop.cx - shooter.x;  // 可为正（P1）可为负（P2）
+  const absD = Math.abs(d);
+  const dir = d > 0 ? 1 : -1;
+  const idealV = vIdealOf(Math.max(1, absD / ppm) * ppm);
+  const baseAngle = dir > 0 ? ANGLE : Math.PI - ANGLE;
   if (hit) {
     const acc = 0.96 + Math.random() * 0.04;
     const av = (Math.random() - 0.5) * 0.025;
-    const a = ANGLE + av;
+    const a = baseAngle + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   } else {
     const missType = Math.random();
     let acc, av;
-    if (missType < 0.5) {
-      acc = 0.97 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.006;
-    } else if (missType < 0.85) {
-      acc = 1.02 + Math.random() * 0.04; av = (Math.random() - 0.5) * 0.008;
-    } else {
-      acc = 0.97 + Math.random() * 0.05; av = (Math.random() - 0.5) * 0.06;
-    }
-    const a = ANGLE + av;
+    if (missType < 0.5) { acc = 0.97 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.006; }
+    else if (missType < 0.85) { acc = 1.02 + Math.random() * 0.04; av = (Math.random() - 0.5) * 0.008; }
+    else { acc = 0.97 + Math.random() * 0.05; av = (Math.random() - 0.5) * 0.06; }
+    const a = baseAngle + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   }
   ball.spin = ball.vx * 0.03;
-  // 记录出手次数和得分归属
   if (isP2) p2Shots++; else p1Shots++;
   sndShoot();
   state = "flying";
@@ -935,14 +935,16 @@ function updateBall(dt) {
   ball.y += ball.vy * dt;
   ball.spin += ball.vx * dt * 0.02;
 
+  // 双人模式使用targetHoop，单人用hoop
+  const hLoop = (mode === "duo" && targetHoop) ? targetHoop : hoop;
   const pts = [
-    { x: hoop.cx - hoop.rimR, y: hoop.cy },
-    { x: hoop.cx + hoop.rimR, y: hoop.cy },
+    { x: hLoop.cx - hLoop.rimR, y: hLoop.cy },
+    { x: hLoop.cx + hLoop.rimR, y: hLoop.cy },
   ];
   for (const p of pts) {
     const dx = ball.x - p.x, dy = ball.y - p.y;
     const dist = Math.hypot(dx, dy);
-    const minD = ball.r + Math.max(1.5, 0.02 * ppm);   // 篮筐粗细按场地比例缩放
+    const minD = ball.r + Math.max(1.5, 0.02 * ppm);
     if (dist < minD && dist > 0.01) {
       const nx = dx / dist, ny = dy / dist;
       const dot = ball.vx * nx + ball.vy * ny;
@@ -957,39 +959,38 @@ function updateBall(dt) {
     }
   }
 
+  // 篮板碰撞
   if (!ball.scored &&
-      ball.vx > 0 &&
-      ball.x + ball.r >= hoop.boardX &&
-      ball.x - ball.r <= hoop.boardX + 10 * S &&
-      ball.y > hoop.boardTop && ball.y < hoop.boardBottom) {
-    ball.x = hoop.boardX - ball.r;
+      ((mode === "duo" && targetHoop) ? ball.vx < 0 : ball.vx > 0) &&
+      ball.x + ball.r >= hLoop.boardX &&
+      ball.x - ball.r <= hLoop.boardX + 10 * S &&
+      ball.y > hLoop.boardTop && ball.y < hLoop.boardBottom) {
+    ball.x = hLoop.boardX - ball.r;
     ball.vx = -ball.vx * 0.55;
     ball.vy *= 0.85;
     if (!ball.touchedBoard) sndBoard();
     ball.touchedBoard = true;
   }
 
-  // 进球判定：球心从篮筐平面上方穿越到下方即算进
-  // 用线性插值求穿越点的 x 坐标，防止高速下落时一帧跳过判定窗口
-  if (!ball.scored && ball.vy > 0 && prevY < hoop.cy && ball.y >= hoop.cy) {
-    const t = (hoop.cy - prevY) / (ball.y - prevY);
+  // 进球判定
+  if (!ball.scored && ball.vy > 0 && prevY < hLoop.cy && ball.y >= hLoop.cy) {
+    const t = (hLoop.cy - prevY) / (ball.y - prevY);
     const crossX = prevX + (ball.x - prevX) * t;
-    if (Math.abs(crossX - hoop.cx) < hoop.rimR * (stepbackArmed ? 1.5 : 0.85)) {
+    if (Math.abs(crossX - hLoop.cx) < hLoop.rimR * (stepbackArmed ? 1.5 : 0.85)) {
       ball.scored = true;
-      stepbackArmed = false;    // 后撤三分命中即消
+      stepbackArmed = false;
       ball.vx *= 0.25;
       ball.vy = Math.min(ball.vy, 260 * S);
     }
   }
 
-  // 🛑 盖帽检测（根据currentShooter判定谁在防守）
+  // 🛑 盖帽检测：P1攻右筐→P2防右筐, P2攻左筐→P1防左筐
   if (mode === "duo" && !ball.scored && state === "flying" && ball.vy < 0) {
-    const def = currentShooter === 1 ? defender : player;  // P1攻→P2防, P2攻→P1防
+    const def = currentShooter === 1 ? defender : player;
     const defHandY = def.y - 1.5 * ppm;
     const dx = ball.x - def.x;
     const dy = ball.y - defHandY;
     const dist = Math.hypot(dx, dy);
-    // P1防守时无技能加成，用基础值
     const blockR = (currentShooter === 1) ? defender.blockRadius : 0.38 * ppm;
     if (dist < blockR + ball.r) {
       ball.scored = false; ball.blocked = true;
@@ -1492,15 +1493,10 @@ function loop(now) {
     if (duoKeys.p1Right) player.x += spd * dt;
     if (duoKeys.p2Left) defender.x -= spd * dt;
     if (duoKeys.p2Right) defender.x += spd * dt;
-    // 防守方必须距进攻方至少1.5m（防止贴脸盖帽）
-    const minDist = 1.5 * ppm;
-    if (currentShooter === 1) {
-      defender.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(player.x + minDist, defender.x));
-      player.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, player.x));
-    } else {
-      player.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(defender.x + minDist, player.x));
-      defender.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, defender.x));
-    }
+    // 各守半场：P1左半场(x≤W/2)，P2右半场(x≥W/2)
+    const mid = W / 2;
+    player.x = Math.max(16, Math.min(mid - 0.5 * ppm, player.x));
+    defender.x = Math.max(mid + 0.5 * ppm, Math.min(hoop.cx - 0.1 * ppm, defender.x));
     if (!defender.onGround) defender.vy += gravPx() * dt;
     defender.y += defender.vy * dt;
     if (defender.y >= GROUND) {
