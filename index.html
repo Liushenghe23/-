@@ -694,16 +694,18 @@ function settleShot() {
   secondChanceArmed = false;
 
   let text, color, pts;
-  if (ball.blocked) {
-    text = "🛑 火锅盖帽！+0"; pts = 0; color = "#ef5350"; sndBoard();
-  } else if (ball.scored) {
+  if (ball.scored) {
     if (ball.dunk)                              { text = "无尽贪婪！劈扣 +3"; pts = 3; color = "#ffd54a"; sndSwish(); }
     else if (!ball.touchedRim && !ball.touchedBoard) { text = "空心入网！+3"; pts = 3; color = "#ffd54a"; sndSwish(); }
     else if (ball.touchedBoard)                 { text = "打板命中 +2"; pts = 2; color = "#9ccc65"; sndScore(); }
     else                                        { text = "碰筐命中 +2"; pts = 2; color = "#9ccc65"; sndScore(); }
   } else if (!ball.touchedRim && !ball.touchedBoard) {
-    text = "三不沾！-1"; pts = -1; color = "#ef5350"; sndBad();
-    tangAnim = { t: 0 }; sndTang();               // 😭 唐 😭 飞屏！
+    if (mode === "duo") {
+      text = "差一点…… +0"; pts = 0; color = "#b0bec5";
+    } else {
+      text = "三不沾！-1"; pts = -1; color = "#ef5350"; sndBad();
+      tangAnim = { t: 0 }; sndTang();               // 😭 唐 😭 飞屏！
+    }
   } else {
     text = "差一点…… +0"; pts = 0; color = "#b0bec5";
   }
@@ -991,31 +993,6 @@ function updateBall(dt) {
     }
   }
 
-  // 🛑 盖帽检测：球飞出1米后且没进筐前可盖，上升或下降阶段都行
-  if (mode === "duo" && !ball.scored && state === "flying" && ball.y < hoop.cy + ball.r &&
-      Math.abs(ball.x - ball.releaseX) > 1.0 * ppm) {
-    const def = currentShooter === 1 ? defender : player;
-    const defHandY = def.y - 1.5 * ppm;
-    const dx = ball.x - def.x;
-    const dy = ball.y - defHandY;
-    const dist = Math.hypot(dx, dy);
-    const blockR = (currentShooter === 1) ? defender.blockRadius : 0.38 * ppm;
-    if (dist < blockR + ball.r) {
-      ball.scored = false; ball.blocked = true;
-      ball.vx = -ball.vx * 0.3;
-      ball.vy = Math.abs(ball.vy) * 0.5;
-      sndBoard();
-      blockCount++;
-      blockAnim = 1.0;
-      document.getElementById("defBlocks").textContent = blockCount;
-      announce("🛑 火锅盖帽！", "#ef5350");
-      // 消耗一次性防守技能效果
-      defSkills.wallActive = false; defSkills.shellActive = false;
-      defender.blockRadius = 0.38 * ppm;
-      // 盖帽后球直接飞走，稍后 settleShot 会处理
-    }
-  }
-
   if (ball.scored && ball.y < hoop.cy + 90 * S) {
     ball.x += (hoop.cx - ball.x) * 0.12;
   }
@@ -1273,22 +1250,6 @@ function drawDefender() {
     ctx.fillStyle = "#455a64";
     ctx.beginPath(); ctx.roundRect(x - 20 * S, y - ph, 40 * S, ph, 16 * S); ctx.fill();
   }
-  // 防守范围（P2进攻时不显示）
-  if (currentShooter === 1 || mode !== "duo") {
-    ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
-    ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
-  }
-  // P1防守时显示防守范围
-  if (mode === "duo" && currentShooter === 2) {
-    ctx.save();
-    ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
-    ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
-    ctx.font = `700 ${9 * S + 2}px sans-serif`; ctx.fillStyle = "#81c784";
-    ctx.textAlign = "center"; ctx.fillText("🛡️", x, y - ph - 24 * S);
-    ctx.restore();
-  }
   ctx.fillStyle = "rgba(0,0,0,.5)";
   ctx.beginPath(); ctx.roundRect(x - 24 * S, y - ph - 20 * S, 48 * S, 16 * S, 8); ctx.fill();
   ctx.fillStyle = "#81c784"; ctx.font = `700 ${11 * S + 2}px sans-serif`;
@@ -1403,21 +1364,6 @@ function drawHUD() {
     ctx.restore();
   }
 
-  // 盖帽特效文字
-  if (blockAnim) {
-    ctx.save();
-    const s = Math.min(1, blockAnim * 3);
-    ctx.translate(W / 2, H * 0.28);
-    ctx.scale(0.6 + 0.4 * s, 0.6 + 0.4 * s);
-    ctx.globalAlpha = Math.min(1, blockAnim * 2);
-    ctx.font = `900 ${38 * S + 16}px sans-serif`; ctx.textAlign = "center";
-    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.6)";
-    ctx.strokeText("🛑 火锅盖帽！", 0, 0);
-    ctx.fillStyle = "#ef5350";
-    ctx.fillText("🛑 火锅盖帽！", 0, 0);
-    ctx.restore();
-  }
-
   // 技能播报
   if (announceT > 0) {
     ctx.save();
@@ -1460,7 +1406,6 @@ function loop(now) {
 
   if (announceT > 0) announceT -= dt;
   if (tangAnim) { tangAnim.t += dt; if (tangAnim.t >= 1.3) tangAnim = null; }
-  if (blockAnim) { blockAnim -= dt; if (blockAnim <= 0) blockAnim = null; }
 
   // 双人模式：P1/P2移动 + 防守方跳跃 + 防守距离限制
   if (mode === "duo") {
