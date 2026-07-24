@@ -628,7 +628,7 @@ function duoShoot() {
   ball.beyond3 = distM >= 6.6;
   ball.releaseX = shooter.x;                    // 记录出手点，防止贴脸盖帽
 
-  ball.x = shooter.x + (isP2 ? -0.3 : 0.3) * ppm; ball.y = shooter.y - 1.2 * ppm;
+  ball.x = shooter.x + (isP2 ? -0.3 : 0.3) * ppm; ball.y = shooter.y - 1.9 * ppm;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
   ball.bounces = 0;
 
@@ -1139,10 +1139,10 @@ function drawCourt() {
   ctx.stroke();
 
   // 右侧三分线（弧顶大圆弧）
-  ctx.save();
-  if (mode === "duo") { ctx.beginPath(); ctx.rect(W / 2, GROUND, W / 2, floorH); ctx.clip(); }
   ctx.strokeStyle = "#ffd54a";
   ctx.lineWidth = Math.max(3.5, 5 * S);
+  ctx.save();
+  if (mode === "duo") { ctx.beginPath(); ctx.rect(0, GROUND, hoop.cx, floorH); ctx.clip(); }
   ctx.beginPath();
   ctx.ellipse(hoop.cx, GROUND, tpR, arcRY, 0, Math.PI * 0.5, Math.PI);
   ctx.stroke();
@@ -1281,6 +1281,14 @@ function drawDefender() {
     ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
     ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
+  }
+  // P1防守时显示防守范围
+  if (mode === "duo" && currentShooter === 2) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
+    ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
+    ctx.restore();
   }
   ctx.fillStyle = "rgba(0,0,0,.5)";
   ctx.beginPath(); ctx.roundRect(x - 24 * S, y - ph - 20 * S, 48 * S, 16 * S, 8); ctx.fill();
