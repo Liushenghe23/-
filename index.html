@@ -243,7 +243,7 @@
     <div class="duo-section">
       <div class="duo-label">🎯 进攻方 (P1) 选角色</div>
       <div class="chars">
-        <div class="char-card" id="p1c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">🪙 无尽贪婪</span></div>
+        <div class="char-card" id="p1c1"><img src="player1.jpg"><span class="cname">豆豆</span><span class="cskill">暂无技能</span></div>
         <div class="char-card" id="p1c2"><img src="wangze-card.jpg"><span class="cname">王泽</span><span class="cskill">💥 肘击 · 🧈 二次</span></div>
         <div class="char-card" id="p1c3"><img src="tianpeng-card.png"><span class="cname">田鹏</span><span class="cskill">🏀 后撤三分 · 🐢 龟</span></div>
       </div>
@@ -443,8 +443,7 @@ let p1Score = 0, p2Score = 0;  // 双人个人得分
 let lastShooter = 0;           // 最后一次投篮者 (1=P1, 2=P2)
 
 // 技能
-let skills = { greed: 0, elbow: 0, second: 0, stepback: 0, turtle: 0 };
-let greedArmed = false;
+let skills = { elbow: 0, second: 0, stepback: 0, turtle: 0 };
 let secondChanceArmed = false;
 let stepbackArmed = false;
 let turtleArmed = false;
@@ -655,16 +654,6 @@ function duoShoot() {
 function shoot() {
   // 三分线外(6.6m)出手：本球得分 +1
   ball.beyond3 = (hoop.cx - handPos().x) >= 6.6 * ppm;
-  // 🪙 无尽贪婪：无视力度，直接起飞扣篮
-  if (greedArmed) {
-    greedArmed = false;
-    dunkAnim = { fromX: player.x, t: 0 };
-    announce("无尽贪婪！起飞！🪙", "#ffd54a");
-    sndShoot();
-    state = "dunkAnim";
-    updateSkillButtons();
-    return;
-  }
   const h = handPos();
   const v = V0 + power * (V1 - V0);           // 力度 → 出手速度
   ball.x = h.x; ball.y = h.y;
@@ -695,8 +684,7 @@ function settleShot() {
   if (ball.blocked) {
     text = "🛑 火锅盖帽！+0"; pts = 0; color = "#ef5350"; sndBoard();
   } else if (ball.scored) {
-    if (ball.dunk)                              { text = "无尽贪婪！劈扣 +3"; pts = 3; color = "#ffd54a"; sndSwish(); }
-    else if (!ball.touchedRim && !ball.touchedBoard) { text = "空心入网！+3"; pts = 3; color = "#ffd54a"; sndSwish(); }
+    if (!ball.touchedRim && !ball.touchedBoard) { text = "空心入网！+3"; pts = 3; color = "#ffd54a"; sndSwish(); }
     else if (ball.touchedBoard)                 { text = "打板命中 +2"; pts = 2; color = "#9ccc65"; sndScore(); }
     else                                        { text = "碰筐命中 +2"; pts = 2; color = "#9ccc65"; sndScore(); }
   } else if (!ball.touchedRim && !ball.touchedBoard) {
@@ -760,13 +748,9 @@ function endGame() {
 function updateSkillButtons() {
   if (state === "menu" || state === "gameover") { clearSkillBtns(); return; }
   if (charIdx === 0) {
-    // 豆豆：无尽贪婪
-    skill1Btn.style.display = "";
+    // 豆豆：暂无技能
+    skill1Btn.style.display = "none";
     skill2Btn.style.display = "none";
-    skill1Btn.disabled = skills.greed <= 0 || state !== "aim" || greedArmed;
-    skill1Btn.innerHTML = greedArmed
-      ? `🪙 无尽贪婪<span class="cnt">已启动</span>`
-      : `🪙 无尽贪婪<span class="cnt">剩 ${skills.greed} 次</span>`;
   } else if (charIdx === 1) {
     // 王泽：肘击 + 肥油二次
     skill1Btn.style.display = "";
@@ -792,17 +776,11 @@ function updateSkillButtons() {
   }
 }
 
-// 技能1：豆豆=无尽贪婪 / 王泽=肘击 / 田鹏=后撤三分
+// 技能1：王泽=肘击 / 田鹏=后撤三分
 skill1Btn.addEventListener("click", () => {
   if (state !== "aim") return;
-  if (charIdx === 0) {
-    // 🪙 无尽贪婪：本球出手直接飞扣
-    if (skills.greed <= 0 || greedArmed) return;
-    skills.greed--;
-    greedArmed = true;
-    announce("无尽贪婪已启动！🪙", "#ffd54a");
-    sndScore();
-  } else if (charIdx === 1) {
+  if (charIdx === 0) return;  // 豆豆无技能
+  if (charIdx === 1) {
     // 💥 王泽肘击：前进3米，遇到球员将其向前推2米
     if (skills.elbow <= 0) return;
     skills.elbow--;
@@ -1665,13 +1643,12 @@ startBtn.addEventListener("click", () => {
   }
   document.getElementById("menu").classList.add("hidden");
   score = 0; shotNum = 0; shotHistory = []; blockCount = 0;
-  skills = charIdx === 0 ? { greed: 2, elbow: 0, second: 0, stepback: 0, turtle: 0 }
-          : charIdx === 1 ? { greed: 0, elbow: 1, second: 1, stepback: 0, turtle: 0 }
-                          : { greed: 0, elbow: 0, second: 0, stepback: 1, turtle: 1 };
+  skills = charIdx === 0 ? { elbow: 0, second: 0, stepback: 0, turtle: 0 }
+          : charIdx === 1 ? { elbow: 1, second: 1, stepback: 0, turtle: 0 }
+                          : { elbow: 0, second: 0, stepback: 1, turtle: 1 };
   defSkills = { wall: defCharIdx === 0 ? 1 : 0, charge: defCharIdx === 1 ? 1 : 0, shell: defCharIdx === 2 ? 1 : 0,
                 wallActive: false, chargeActive: false, shellActive: false };
   defender.blockRadius = 0.38 * ppm;
-  greedArmed = false;
   secondChanceArmed = false;
   stepbackArmed = false;
   turtleArmed = false;
