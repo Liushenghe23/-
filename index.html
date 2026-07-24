@@ -551,19 +551,18 @@ function newShot() {
   if (mode === "duo") defenderInit();
 }
 function duoNextShot() {
-  // 交换攻守：谁投了谁去防守
+  // 交换攻守
   currentShooter = currentShooter === 1 ? 2 : 1;
-  // 进攻方脚色索引随之交换
-  if (currentShooter === 1) {
-    // P1进攻 P2防守
-    const tmpChar = charIdx; charIdx = defCharIdx; defCharIdx = tmpChar;
-  } else {
-    // P2进攻 P1防守
-    const tmpChar = defCharIdx; defCharIdx = charIdx; charIdx = tmpChar;
+  // 交换角色索引
+  const tmpChar = charIdx; charIdx = defCharIdx; defCharIdx = tmpChar;
+  // 进攻方站左侧、防守方站右侧（近篮筐）
+  let p1x = W * 0.12 + 0.8 * ppm;   // 默认P1进攻
+  let p2x = hoop.cx - 3 * ppm;       // 默认P2防守
+  if (currentShooter === 2) {         // P2进攻时互换位置
+    p1x = hoop.cx - 3 * ppm;          // P1防守
+    p2x = W * 0.12 + 0.8 * ppm;       // P2进攻
   }
-  // 重设位置
-  player.x = W * 0.12 + 0.8 * ppm;
-  defender.x = hoop.cx - 3 * ppm;
+  player.x = p1x; defender.x = p2x;
   player.y = GROUND; defender.y = GROUND;
   defender.vy = 0; defender.vx = 0;
   defender.jumping = false; defender.onGround = true;
@@ -983,13 +982,16 @@ function updateBall(dt) {
     }
   }
 
-  // 🛑 盖帽检测：防守方在球飞行途中触球即盖帽
+  // 🛑 盖帽检测（根据currentShooter判定谁在防守）
   if (mode === "duo" && !ball.scored && state === "flying" && ball.vy < 0) {
-    const defHandY = defender.y - 1.5 * ppm;
-    const dx = ball.x - defender.x;
+    const def = currentShooter === 1 ? defender : player;  // P1攻→P2防, P2攻→P1防
+    const defHandY = def.y - 1.5 * ppm;
+    const dx = ball.x - def.x;
     const dy = ball.y - defHandY;
     const dist = Math.hypot(dx, dy);
-    if (dist < defender.blockRadius + ball.r) {
+    // P1防守时无技能加成，用基础值
+    const blockR = (currentShooter === 1) ? defender.blockRadius : 0.38 * ppm;
+    if (dist < blockR + ball.r) {
       ball.scored = false; ball.blocked = true;
       ball.vx = -ball.vx * 0.3;
       ball.vy = Math.abs(ball.vy) * 0.5;
@@ -1483,15 +1485,22 @@ function loop(now) {
   if (tangAnim) { tangAnim.t += dt; if (tangAnim.t >= 1.3) tangAnim = null; }
   if (blockAnim) { blockAnim -= dt; if (blockAnim <= 0) blockAnim = null; }
 
-  // 双人模式：P1/P2移动 + 防守方跳跃
+  // 双人模式：P1/P2移动 + 防守方跳跃 + 防守距离限制
   if (mode === "duo") {
     const spd = 4.0 * ppm;
     if (duoKeys.p1Left) player.x -= spd * dt;
     if (duoKeys.p1Right) player.x += spd * dt;
-    player.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, player.x));
     if (duoKeys.p2Left) defender.x -= spd * dt;
     if (duoKeys.p2Right) defender.x += spd * dt;
-    defender.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(16, defender.x));
+    // 防守方必须距进攻方至少1.5m（防止贴脸盖帽）
+    const minDist = 1.5 * ppm;
+    if (currentShooter === 1) {
+      defender.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(player.x + minDist, defender.x));
+      player.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, player.x));
+    } else {
+      player.x = Math.min(hoop.cx - 0.1 * ppm, Math.max(defender.x + minDist, player.x));
+      defender.x = Math.max(16, Math.min(hoop.cx - 0.1 * ppm, defender.x));
+    }
     if (!defender.onGround) defender.vy += gravPx() * dt;
     defender.y += defender.vy * dt;
     if (defender.y >= GROUND) {
