@@ -465,11 +465,9 @@ let defKeys = { left: false, right: false, jump: false, skill1: false, skill2: f
 let blockAnim = null;   // 盖帽特效计时器
 
 // 双人模式：回合制轮流进攻（每人5球）
-let currentShooter = 1;       // 当前谁投篮 (1=P1攻右筐, 2=P2攻左筐)
+let currentShooter = 1;       // 当前谁投篮 (1=P1, 2=P2)
 let p1Shots = 0, p2Shots = 0; // 各已出手次数
 let p1Score = 0, p2Score = 0; // 双方得分
-let leftHoop = null;          // P2攻击的左筐
-let targetHoop = null;        // 当前投篮目标筐
 
 // 技能
 let skills = { elbow: 0, second: 0, stepback: 0, turtle: 0 };
@@ -570,17 +568,7 @@ function duoNextShot() {
   document.getElementById("defName").textContent = ["豆豆","王泽","田鹏"][defCharIdx];
 }
 
-function initDuoHoops() {
-  const lX = W * 0.12;
-  leftHoop = {
-    cx: lX, cy: hoop.cy, rimR: hoop.rimR,
-    boardX: lX - hoop.rimR - 4 * S - 60 * S,
-    boardTop: hoop.boardTop, boardBottom: hoop.boardBottom,
-  };
-}
-
 function defenderInit() {
-  initDuoHoops();
   player.x = W * 0.12 + 0.8 * ppm;   // P1站左侧
   defender.x = hoop.cx - 3 * ppm;     // P2站右侧
   player.y = GROUND; defender.y = GROUND;
@@ -600,13 +588,12 @@ function resetBall() {
   ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
 }
 
-// 2P概率投篮：P1攻右筐、P2攻左筐
+// 2P概率投篮（统一攻右筐）
 function duoShoot() {
   if (state !== "aim" || mode !== "duo") return;
   const isP2 = currentShooter === 2;
-  targetHoop = isP2 ? leftHoop : hoop;    // P1→右筐, P2→左筐
   const shooter = isP2 ? defender : player;
-  const distM = Math.abs(targetHoop.cx - shooter.x) / ppm;
+  const distM = (hoop.cx - shooter.x) / ppm;
   let baseRate;
   if (distM < 2.3) baseRate = 1.0;
   else if (distM < 6.6) baseRate = 0.65;
@@ -619,20 +606,16 @@ function duoShoot() {
   const hit = Math.random() < hitRate;
   ball.beyond3 = distM >= 6.6;
 
-  ball.x = shooter.x + 0.3 * (isP2 ? -1 : 1) * ppm;
-  ball.y = shooter.y - 1.2 * ppm;
+  ball.x = shooter.x + 0.3 * ppm; ball.y = shooter.y - 1.2 * ppm;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
   ball.bounces = 0;
 
-  const d = targetHoop.cx - shooter.x;  // 可为正（P1）可为负（P2）
-  const absD = Math.abs(d);
-  const dir = d > 0 ? 1 : -1;
-  const idealV = vIdealOf(Math.max(1, absD / ppm) * ppm);
-  const baseAngle = dir > 0 ? ANGLE : Math.PI - ANGLE;
+  const d = hoop.cx - shooter.x;
+  const idealV = vIdealOf(Math.max(1, d / ppm) * ppm);
   if (hit) {
     const acc = 0.96 + Math.random() * 0.04;
     const av = (Math.random() - 0.5) * 0.025;
-    const a = baseAngle + av;
+    const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   } else {
@@ -641,7 +624,7 @@ function duoShoot() {
     if (missType < 0.5) { acc = 0.97 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.006; }
     else if (missType < 0.85) { acc = 1.02 + Math.random() * 0.04; av = (Math.random() - 0.5) * 0.008; }
     else { acc = 0.97 + Math.random() * 0.05; av = (Math.random() - 0.5) * 0.06; }
-    const a = baseAngle + av;
+    const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   }
@@ -935,11 +918,9 @@ function updateBall(dt) {
   ball.y += ball.vy * dt;
   ball.spin += ball.vx * dt * 0.02;
 
-  // 双人模式使用targetHoop，单人用hoop
-  const hLoop = (mode === "duo" && targetHoop) ? targetHoop : hoop;
   const pts = [
-    { x: hLoop.cx - hLoop.rimR, y: hLoop.cy },
-    { x: hLoop.cx + hLoop.rimR, y: hLoop.cy },
+    { x: hoop.cx - hoop.rimR, y: hoop.cy },
+    { x: hoop.cx + hoop.rimR, y: hoop.cy },
   ];
   for (const p of pts) {
     const dx = ball.x - p.x, dy = ball.y - p.y;
@@ -961,11 +942,11 @@ function updateBall(dt) {
 
   // 篮板碰撞
   if (!ball.scored &&
-      ((mode === "duo" && targetHoop) ? ball.vx < 0 : ball.vx > 0) &&
-      ball.x + ball.r >= hLoop.boardX &&
-      ball.x - ball.r <= hLoop.boardX + 10 * S &&
-      ball.y > hLoop.boardTop && ball.y < hLoop.boardBottom) {
-    ball.x = hLoop.boardX - ball.r;
+      ball.vx > 0 &&
+      ball.x + ball.r >= hoop.boardX &&
+      ball.x - ball.r <= hoop.boardX + 10 * S &&
+      ball.y > hoop.boardTop && ball.y < hoop.boardBottom) {
+    ball.x = hoop.boardX - ball.r;
     ball.vx = -ball.vx * 0.55;
     ball.vy *= 0.85;
     if (!ball.touchedBoard) sndBoard();
@@ -973,10 +954,10 @@ function updateBall(dt) {
   }
 
   // 进球判定
-  if (!ball.scored && ball.vy > 0 && prevY < hLoop.cy && ball.y >= hLoop.cy) {
-    const t = (hLoop.cy - prevY) / (ball.y - prevY);
+  if (!ball.scored && ball.vy > 0 && prevY < hoop.cy && ball.y >= hoop.cy) {
+    const t = (hoop.cy - prevY) / (ball.y - prevY);
     const crossX = prevX + (ball.x - prevX) * t;
-    if (Math.abs(crossX - hLoop.cx) < hLoop.rimR * (stepbackArmed ? 1.5 : 0.85)) {
+    if (Math.abs(crossX - hoop.cx) < hoop.rimR * (stepbackArmed ? 1.5 : 0.85)) {
       ball.scored = true;
       stepbackArmed = false;
       ball.vx *= 0.25;
@@ -1108,7 +1089,6 @@ function drawCourt() {
   const baseX = hoop.cx + 0.4 * ppm;                     // 底线（篮板投影处）
   const floorH = H - GROUND;
   const arcRY = Math.min(tpR * 0.24, floorH * 0.78);     // 地面透视压扁
-  const lHoopX = W - hoop.cx;                            // 左侧篮筐（镜像）
 
   ctx.save();
   ctx.beginPath(); ctx.rect(0, GROUND, W, floorH); ctx.clip();   // 只画在地板内
@@ -1138,30 +1118,6 @@ function drawCourt() {
   ctx.stroke();
   ctx.restore();
 
-  // 双人模式：左侧对称半场
-  if (mode === "duo") {
-    const lftX = lHoopX + 4.6 * ppm;   // 左侧罚球线（镜像）
-    const lBaseX = lHoopX - 0.4 * ppm; // 左侧底线
-    ctx.fillStyle = "rgba(41, 98, 200, .38)";
-    ctx.fillRect(lftX, GROUND, baseX - ftX, floorH);
-    ctx.strokeStyle = "rgba(255,255,255,.9)";
-    ctx.strokeRect(lftX, GROUND + 1, baseX - ftX, floorH - 1);
-    ctx.strokeStyle = "#fff";
-    ctx.beginPath(); ctx.moveTo(lftX, GROUND); ctx.lineTo(lftX, H); ctx.stroke();
-    ctx.save();
-    ctx.beginPath(); ctx.rect(0, GROUND, W / 2, floorH); ctx.clip();
-    ctx.strokeStyle = "#ffd54a";
-    ctx.beginPath();
-    ctx.ellipse(lHoopX, GROUND, tpR, arcRY, Math.PI, Math.PI * 0.5, Math.PI);
-    ctx.stroke();
-    ctx.restore();
-    // 中线
-    ctx.strokeStyle = "rgba(255,255,255,.5)";
-    ctx.lineWidth = Math.max(2, 3 * S);
-    ctx.setLineDash([8 * S, 8 * S]);
-    ctx.beginPath(); ctx.moveTo(W / 2, GROUND); ctx.lineTo(W / 2, H); ctx.stroke();
-    ctx.setLineDash([]);
-  }
   ctx.restore();
 
   // 线名标签（带底色胶囊，任何背景下都清晰）
@@ -1178,9 +1134,6 @@ function drawCourt() {
   };
   courtLabel("罚球线", ftX, "#ffffff");
   courtLabel("三分线", hoop.cx - tpR, "#ffd54a");
-  if (mode === "duo") {
-    courtLabel("三分线", lHoopX + tpR, "#ffd54a");
-  }
   ctx.restore();
 }
 
@@ -1199,27 +1152,6 @@ function drawHoop() {
     ctx.beginPath(); ctx.ellipse(hoop.cx, hoop.cy, hoop.rimR, 6 * S, 0, 0, Math.PI * 2); ctx.stroke();
   }
   ctx.restore();
-
-  // 双人模式：左侧篮筐（镜像）
-  if (mode === "duo") {
-    const lHoopX = W - hoop.cx;
-    const lPoleX = lHoopX - hoop.rimR - 4 * S - 60 * S;
-    ctx.fillStyle = "#2e7d32";
-    ctx.fillRect(lPoleX, hoop.boardTop, 16 * S, GROUND - hoop.boardTop);
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,.4)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4;
-    if (imgHoop.complete && imgHoop.naturalWidth) {
-      ctx.scale(-1, 1);
-      ctx.drawImage(imgHoop, -lHoopX - hoop.imgW / 2, hoop.imgY, hoop.imgW, hoop.imgH);
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    } else {
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(lPoleX, hoop.boardTop, 8 * S, hoop.boardBottom - hoop.boardTop);
-      ctx.strokeStyle = "#e53935"; ctx.lineWidth = 4 * S;
-      ctx.beginPath(); ctx.ellipse(lHoopX, hoop.cy, hoop.rimR, 6 * S, 0, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.restore();
-  }
 
   if (ball.scored && (state === "flying" || state === "result" || state === "resultWait" || state === "dunkAnim")) {
     ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2 * S;
