@@ -210,7 +210,7 @@
 <!-- 开始 / 选人界面 -->
 <div id="menu" class="overlay">
   <div style="position:absolute;top:20px;right:16px;display:flex;align-items:center;gap:8px;z-index:25">
-    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.26</span>
+    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.27</span>
     <button class="lb-btn" id="lbOpenBtn" style="position:static">🏆 排行榜</button>
   </div>
   <div class="title">🏀 投篮挑战赛</div>
@@ -294,8 +294,8 @@
 "use strict";
 
 /* ================= 版本 ================= */
-const APP_VER = { major: 1, minor: 26 };
-const VER_MAJOR = 1; let VER_MINOR = 26;
+const APP_VER = { major: 1, minor: 27 };
+const VER_MAJOR = 1; let VER_MINOR = 27;
 function bumpVer() { VER_MINOR++; document.getElementById("verText").textContent = "v" + VER_MAJOR + "." + VER_MINOR; }
 
 /* ================= 基础 ================= */
@@ -506,6 +506,7 @@ const nextBtn = document.getElementById("nextBtn");
 const skillBar = document.getElementById("skillBar");
 const skill1Btn = document.getElementById("skill1");
 const skill2Btn = document.getElementById("skill2");
+skill1Btn.textContent = ""; skill2Btn.textContent = "";   // 硬清除默认内容
 let skillBarVisible = false;
 
 function newShot() {
@@ -1623,7 +1624,8 @@ function checkDuoReady() {
 
 // 模式切换
 function clearSkillBtns() {
-  skill1Btn.innerHTML = ""; skill2Btn.innerHTML = "";
+  skill1Btn.textContent = ""; skill2Btn.textContent = "";
+  skill1Btn.style.display = "none"; skill2Btn.style.display = "none";
 }
 modeSingle.addEventListener("click", () => {
   mode = "single"; modeSingle.classList.add("active"); modeDuo.classList.remove("active");
