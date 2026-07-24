@@ -593,6 +593,7 @@ function duoShoot() {
   if (state !== "aim" || mode !== "duo") return;
   const isP2 = currentShooter === 2;
   const shooter = isP2 ? defender : player;
+  const distM = (hoop.cx - shooter.x) / ppm;
   let baseRate;
   if (distM < 2.3) baseRate = 1.0;
   else if (distM < 6.6) baseRate = 0.65;
