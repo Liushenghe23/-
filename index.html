@@ -210,7 +210,7 @@
 <!-- 开始 / 选人界面 -->
 <div id="menu" class="overlay">
   <div style="position:absolute;top:20px;right:16px;display:flex;align-items:center;gap:8px;z-index:25">
-    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.24</span>
+    <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600" id="verText">v1.25</span>
     <button class="lb-btn" id="lbOpenBtn" style="position:static">🏆 排行榜</button>
   </div>
   <div class="title">🏀 投篮挑战赛</div>
@@ -294,8 +294,8 @@
 "use strict";
 
 /* ================= 版本 ================= */
-const APP_VER = { major: 1, minor: 24 };
-const VER_MAJOR = 1; let VER_MINOR = 24;
+const APP_VER = { major: 1, minor: 25 };
+const VER_MAJOR = 1; let VER_MINOR = 25;
 function bumpVer() { VER_MINOR++; document.getElementById("verText").textContent = "v" + VER_MAJOR + "." + VER_MINOR; }
 
 /* ================= 基础 ================= */
@@ -1621,18 +1621,23 @@ function checkDuoReady() {
 }
 
 // 模式切换
+function clearSkillBtns() {
+  skill1Btn.innerHTML = ""; skill2Btn.innerHTML = "";
+}
 modeSingle.addEventListener("click", () => {
   mode = "single"; modeSingle.classList.add("active"); modeDuo.classList.remove("active");
   document.getElementById("singleChars").style.display = "";
   document.getElementById("duoChars").style.display = "none";
   startBtn.disabled = selectedChar < 0;
   startBtn.textContent = startBtn.disabled ? "请先选择球员" : "开始比赛 🏀";
+  clearSkillBtns();
 });
 modeDuo.addEventListener("click", () => {
   mode = "duo"; modeDuo.classList.add("active"); modeSingle.classList.remove("active");
   document.getElementById("singleChars").style.display = "none";
   document.getElementById("duoChars").style.display = "";
   checkDuoReady();
+  clearSkillBtns();
 });
 
 document.getElementById("char1").addEventListener("click", () => pickChar(0));
@@ -1673,11 +1678,11 @@ document.getElementById("retryBtn").addEventListener("click", () => {
   document.getElementById("gameover").classList.add("hidden");
   document.getElementById("menu").classList.remove("hidden");
   document.getElementById("saveScoreBtn").style.display = "none";
-  // 重置模式按钮状态
   modeSingle.classList.toggle("active", mode === "single");
   modeDuo.classList.toggle("active", mode === "duo");
   document.getElementById("singleChars").style.display = mode === "single" ? "" : "none";
   document.getElementById("duoChars").style.display = mode === "duo" ? "" : "none";
+  clearSkillBtns();
   state = "menu";
 });
 
