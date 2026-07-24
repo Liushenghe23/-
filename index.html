@@ -477,7 +477,7 @@ let turtleArmed = false;
 let skillAnim = null;
 let dunkAnim = null;
 
-let player = { x: 0, y: 0 };
+let player = { x: 0, y: 0, vy: 0, jumping: false };
 
 // 出手点（头顶前上方，约 1.9 米高）
 function handPos() {
@@ -593,7 +593,6 @@ function duoShoot() {
   if (state !== "aim" || mode !== "duo") return;
   const isP2 = currentShooter === 2;
   const shooter = isP2 ? defender : player;
-  const distM = (hoop.cx - shooter.x) / ppm;
   let baseRate;
   if (distM < 2.3) baseRate = 1.0;
   else if (distM < 6.6) baseRate = 0.65;
@@ -621,9 +620,9 @@ function duoShoot() {
   } else {
     const missType = Math.random();
     let acc, av;
-    if (missType < 0.5) { acc = 0.97 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.006; }
-    else if (missType < 0.85) { acc = 1.02 + Math.random() * 0.04; av = (Math.random() - 0.5) * 0.008; }
-    else { acc = 0.97 + Math.random() * 0.05; av = (Math.random() - 0.5) * 0.06; }
+    if (missType < 0.5) { acc = 0.98 + Math.random() * 0.02; av = (Math.random() - 0.5) * 0.005; }
+    else if (missType < 0.85) { acc = 1.01 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.005; }
+    else { acc = 0.98 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.04; }
     const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
@@ -1032,9 +1031,9 @@ function updateDefender(dt) {
 
 // 防守方跳跃（双人模式任一玩家防守时）
 function defenderJump(which) {
-  const p = which === 1 ? player : defender;
-  if (p === player) return;  // P1防守暂不支持跳跃（简化）
-  if (defender.onGround) {
+  if (which === 1 && Math.abs(player.y - GROUND) < 1) { // P1跳跃
+    player.vy = -6.5 * ppm; player.jumping = true;
+  } else if (which === 2 && defender.onGround) { // P2跳跃
     defender.vy = -6.5 * ppm; defender.jumping = true; defender.onGround = false;
   }
 }
@@ -1429,8 +1428,12 @@ function loop(now) {
     const mid = W / 2;
     player.x = Math.max(16, Math.min(mid - 0.5 * ppm, player.x));
     defender.x = Math.max(mid + 0.5 * ppm, Math.min(hoop.cx - 0.1 * ppm, defender.x));
-    if (!defender.onGround) defender.vy += gravPx() * dt;
-    defender.y += defender.vy * dt;
+    // 双方跳跃物理
+    if (player.vy !== undefined) {
+      player.vy += gravPx() * dt; player.y += player.vy * dt;
+      if (player.y >= GROUND) { player.y = GROUND; player.vy = 0; player.jumping = false; }
+    }
+    if (!defender.onGround) { defender.vy += gravPx() * dt; defender.y += defender.vy * dt; }
     if (defender.y >= GROUND) {
       defender.y = GROUND; defender.vy = 0; defender.jumping = false; defender.onGround = true;
     }
