@@ -363,9 +363,15 @@ const RIM_CX_F = 0.42, RIM_CY_F = 0.535, RIM_W_F = 0.235;
 let hoop = {};
 
 function layoutHoop() {
-  ppm = (W * 0.82 - W * 0.08) / 7.9;          // 场地可见宽度 ≈ 7.9 米
+  if (mode === "duo") {
+    // 双人模式：标准FIBA全场(28m)，左右双筐
+    ppm = (W * 0.88 - W * 0.12) / 28;
+  } else {
+    ppm = (W * 0.82 - W * 0.08) / 7.9;        // 单人：7.9米可见
+  }
   const rimR = 0.225 * ppm;                   // 标准篮筐半径 0.225 米
-  const cx = W * 0.82, cy = GROUND - 3.05 * ppm;  // 篮筐高 3.05 米
+  const cx = W * (mode === "duo" ? 0.88 : 0.82);
+  const cy = GROUND - 3.05 * ppm;  // 篮筐高 3.05 米
   const imgW = (rimR * 2) / RIM_W_F;
   const imgH = imgW * (imgHoop.naturalHeight && imgHoop.naturalWidth
                         ? imgHoop.naturalHeight / imgHoop.naturalWidth : 851 / 933);
@@ -529,7 +535,8 @@ function defenderInit() {
 }
 
 function initDuoHoops() {
-  const lX = W - hoop.cx;
+  // 左侧篮筐位置 (FIBA对称)
+  const lX = W * 0.12;
   leftHoop = {
     cx: lX, cy: hoop.cy, rimR: hoop.rimR,
     boardX: lX - hoop.rimR - 4 * S - 60 * S,
@@ -544,29 +551,29 @@ function resetBall() {
   ball.bounces = 0; ball.r = 0.12 * ppm;      // 标准篮球半径约 0.12 米
 }
 
-// 篮板：无球时按W/↑抢板
-function tryRebound() {
-  if (mode !== "duo" || ballOwner !== 0) return;
-  // 仅当球在地上或刚弹起时能抢
-  if (ball.y < GROUND - 0.5 * ppm || state === "flying") return;
-  // 检测谁更近(用P1的叫player, P2的叫defender)
-  const d1 = Math.abs(ball.x - player.x);
-  const d2 = Math.abs(ball.x - defender.x);
-  const reboundKeyP1 = duoKeys.p1Shoot;  // W被按下
-  const reboundKeyP2 = duoKeys.p2Jump;   // ↑被按下
-  if (reboundKeyP1 && d1 < 3 * ppm) {
-    ballOwner = 1; activeHoop = hoop;
-    grabBall(player);
-  } else if (reboundKeyP2 && d2 < 3 * ppm) {
-    ballOwner = 2; activeHoop = leftHoop;
-    grabBall(defender);
+// 篮板：碰撞圈自动抢板（手部+脚部范围）
+function checkRebound() {
+  if (mode !== "duo" || ballOwner !== 0 || state === "flying") return;
+  if (ball.scored || ball.bounces > 5) return;
+  const pickupR = 0.6 * ppm;  // 篮板碰撞圈半径
+  for (let isP2 = 0; isP2 <= 1; isP2++) {
+    const p = isP2 ? defender : player;
+    const pChar = isP2 ? defCharIdx : charIdx;
+    // 手部碰撞圈（防守范围样式）：在人物上方
+    const handY = p.y - 1.2 * ppm;
+    const dh = Math.hypot(ball.x - p.x, ball.y - handY);
+    // 脚部碰撞圈（地板球）：在人物脚下
+    const df = Math.hypot(ball.x - p.x, (ball.y + ball.r) - p.y);
+    if (dh < pickupR + ball.r || df < pickupR * 0.8 + ball.r) {
+      ballOwner = isP2 ? 2 : 1;
+      activeHoop = isP2 ? leftHoop : hoop;
+      ball.x = p.x + 0.2 * ppm; ball.y = handY;
+      ball.vx = 0; ball.vy = 0; ball.bounces = 0;
+      state = "aim";
+      announce("抢到篮板！🏀", "#4fc3f7"); sndScore();
+      return;
+    }
   }
-}
-function grabBall(p) {
-  ball.x = p.x + 0.2 * ppm; ball.y = p.y - 1.2 * ppm;
-  ball.vx = 0; ball.vy = 0; ball.bounces = 0;
-  state = "aim";
-  announce("抢到篮板！🏀", "#4fc3f7"); sndScore();
 }
 
 // P2投篮（↑键） - 由键盘事件调用
@@ -618,11 +625,11 @@ function duoShoot() {
     let acc, av;
     const missAngle = dir > 0 ? ANGLE : Math.PI - ANGLE;
     if (missType < 0.5) {
-      acc = 0.95 + Math.random() * 0.05; av = (Math.random() - 0.5) * 0.01;
+      acc = 0.97 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.006;
     } else if (missType < 0.85) {
-      acc = 1.02 + Math.random() * 0.06; av = (Math.random() - 0.5) * 0.015;
+      acc = 1.02 + Math.random() * 0.04; av = (Math.random() - 0.5) * 0.008;
     } else {
-      acc = 0.95 + Math.random() * 0.07; av = (Math.random() - 0.5) * 0.08;
+      acc = 0.97 + Math.random() * 0.05; av = (Math.random() - 0.5) * 0.06;
     }
     const a = missAngle + av;
     ball.vx = Math.cos(a) * idealV * acc;
@@ -1007,7 +1014,11 @@ function updateBall(dt) {
     if (++ball.bounces > 3 || Math.abs(ball.vx) < 20 * S) settleShot();
   }
 
-  if (ball.x < -60 || ball.x > W + 60 || ball.y < -H) settleShot();
+  // 屏幕边界反弹（球不飞出视野）
+  if (ball.x < 10) { ball.x = 10; ball.vx = Math.abs(ball.vx) * 0.5; if (ball.bounces++ > 5) settleShot(); }
+  if (ball.x > W - 10) { ball.x = W - 10; ball.vx = -Math.abs(ball.vx) * 0.5; if (ball.bounces++ > 5) settleShot(); }
+  if (ball.y < -H * 0.8) { ball.y = -H * 0.8; ball.vy = Math.abs(ball.vy) * 0.3; }
+  if (ball.y > H + 50) settleShot();
 }
 
 /* ================= 防守方 (2P) ================= */
@@ -1473,8 +1484,8 @@ function loop(now) {
     if (defender.y >= GROUND) {
       defender.y = GROUND; defender.vy = 0; defender.jumping = false; defender.onGround = true;
     }
-    // 篮板检测（无球权时）
-    if (ballOwner === 0) tryRebound();
+    // 篮板碰撞圈自动检测
+    if (ballOwner === 0) checkRebound();
     if (state === "charging") state = "aim";
   }
 
