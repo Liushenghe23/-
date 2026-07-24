@@ -628,19 +628,16 @@ function duoShoot() {
   ball.beyond3 = distM >= 6.6;
   ball.releaseX = shooter.x;                    // 记录出手点，防止贴脸盖帽
 
-  ball.x = shooter.x + (isP2 ? -0.3 : 0.3) * ppm; ball.y = shooter.y - 1.9 * ppm;
+  ball.x = shooter.x; ball.y = shooter.y - 1.9 * ppm;
   ball.touchedRim = ball.touchedBoard = ball.scored = ball.dunk = ball.blocked = false;
   ball.bounces = 0;
 
-  const d = hoop.cx - shooter.x;
-  const absD = Math.abs(d);
-  const dir = d > 0 ? 1 : -1;
-  const baseAngle = dir > 0 ? ANGLE : Math.PI - ANGLE;
-  const idealV = vIdealOf(Math.max(1, absD / ppm) * ppm);
+  const d = Math.max(0.5 * ppm, hoop.cx - ball.x);  // 至少0.5m
+  const idealV = vIdealOf(d);
   if (hit) {
     const acc = 0.96 + Math.random() * 0.04;
     const av = (Math.random() - 0.5) * 0.025;
-    const a = baseAngle + av;
+    const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   } else {
@@ -649,7 +646,7 @@ function duoShoot() {
     if (missType < 0.5) { acc = 0.98 + Math.random() * 0.02; av = (Math.random() - 0.5) * 0.005; }
     else if (missType < 0.85) { acc = 1.01 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.005; }
     else { acc = 0.98 + Math.random() * 0.03; av = (Math.random() - 0.5) * 0.04; }
-    const a = baseAngle + av;
+    const a = ANGLE + av;
     ball.vx = Math.cos(a) * idealV * acc;
     ball.vy = -Math.sin(a) * idealV * acc;
   }
