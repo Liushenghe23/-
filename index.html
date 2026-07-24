@@ -567,7 +567,7 @@ function duoNextShot() {
   const def = currentShooter === 1 ? defender : player;
   // 进攻方站左侧远点，防守方站篮筐前
   atk.x = Math.max(16, hoop.cx - 6.0 * ppm); atk.y = GROUND;
-  def.x = hoop.cx - 1.8 * ppm; def.y = GROUND;
+  def.x = hoop.cx - 4.0 * ppm; def.y = GROUND;
   player.vy = 0; player.jumping = false;
   defender.vy = 0; defender.jumping = false; defender.onGround = true;
   resetBall();
@@ -583,7 +583,7 @@ function duoNextShot() {
 function defenderInit() {
   // 开局：P1进攻(左侧远点)，P2防守(篮筐前)
   player.x = Math.max(16, hoop.cx - 6.0 * ppm);
-  defender.x = hoop.cx - 1.8 * ppm;
+  defender.x = hoop.cx - 4.0 * ppm;
   player.y = GROUND; defender.y = GROUND;
   player.vy = 0; player.jumping = false;
   defender.vy = 0; defender.vx = 0;
@@ -991,8 +991,8 @@ function updateBall(dt) {
     }
   }
 
-  // 🛑 盖帽检测：球飞出1米后才可盖（防贴脸），按回合识别防守方
-  if (mode === "duo" && !ball.scored && state === "flying" && ball.vy < 0 &&
+  // 🛑 盖帽检测：球飞出1米后且没进筐前可盖，上升或下降阶段都行
+  if (mode === "duo" && !ball.scored && state === "flying" && ball.y < hoop.cy + ball.r &&
       Math.abs(ball.x - ball.releaseX) > 1.0 * ppm) {
     const def = currentShooter === 1 ? defender : player;
     const defHandY = def.y - 1.5 * ppm;
@@ -1285,6 +1285,8 @@ function drawDefender() {
     ctx.beginPath(); ctx.arc(x, y - 1.4 * ppm, defender.blockRadius, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(129,199,132,.12)"; ctx.fill();
     ctx.strokeStyle = "rgba(129,199,132,.35)"; ctx.lineWidth = 1.5 * S; ctx.stroke();
+    ctx.font = `700 ${9 * S + 2}px sans-serif`; ctx.fillStyle = "#81c784";
+    ctx.textAlign = "center"; ctx.fillText("🛡️", x, y - ph - 24 * S);
     ctx.restore();
   }
   ctx.fillStyle = "rgba(0,0,0,.5)";
