@@ -617,7 +617,7 @@ function duoShoot() {
   const distM = (hoop.cx - shooter.x) / ppm;
   let baseRate;
   if (distM < 2.3) baseRate = 1.0;
-  else if (distM < 6.6) baseRate = 0.65;
+  else if (distM < 6.6) baseRate = 0.80;
   else baseRate = 0.39;
   let bonus = 0;
   if (aChar === 0) bonus = 0.20;
@@ -1000,7 +1000,7 @@ function updateBall(dt) {
       Math.abs(ball.x - ball.releaseX) > 0.5 * ppm) {
     const def = currentShooter === 1 ? defender : player;
     const handX = def.x + 0.3 * ppm, handY = def.y - 1.5 * ppm;
-    if (Math.hypot(ball.x - handX, ball.y - handY) < 0.3 * ppm + ball.r) {
+    if (Math.hypot(ball.x - handX, ball.y - handY) < 0.39 * ppm + ball.r) {
       ball.scored = false; ball.blocked = true;
       ball.vx = -ball.vx * 0.4; ball.vy = Math.abs(ball.vy) * 0.4;
       sndBoard();
@@ -1233,7 +1233,7 @@ function drawPlayer() {
 
   // P1防守时蓝色手部盖帽圈
   if (mode === "duo" && currentShooter === 2) {
-    ctx.beginPath(); ctx.arc(x + 0.3 * ppm, y - 1.5 * ppm, 0.3 * ppm, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(x + 0.3 * ppm, y - 1.5 * ppm, 0.39 * ppm, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(66,165,245,.25)"; ctx.fill();
     ctx.strokeStyle = "rgba(66,165,245,.7)"; ctx.lineWidth = 2.5 * S; ctx.stroke();
   }
@@ -1278,7 +1278,7 @@ function drawDefender() {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   // P2防守时蓝色手部盖帽圈
   if (mode === "duo" && currentShooter === 1) {
-    ctx.beginPath(); ctx.arc(x + 0.3 * ppm, y - 1.5 * ppm, 0.3 * ppm, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(x + 0.3 * ppm, y - 1.5 * ppm, 0.39 * ppm, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(66,165,245,.25)"; ctx.fill();
     ctx.strokeStyle = "rgba(66,165,245,.7)"; ctx.lineWidth = 2.5 * S; ctx.stroke();
   }
